@@ -1,18 +1,15 @@
 import { Link } from 'react-router'
-import { Minus, Plus, Trash2, CheckCircle, ShoppingBag } from 'lucide-react'
+import { Minus, Plus, Trash2, CheckCircle, ShoppingBag, MapPin, CreditCard, Truck, ShieldCheck, Gift } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useState, useEffect } from 'react'
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, cartSubtotal, cartIVA, cartTotal, clearCart, customer, storeSettings, user, loadCustomer, addOrder, setCustomer, saveCustomer } = useApp()
   
-  // Cargar datos del cliente al inicio
   useEffect(() => {
     loadCustomer()
   }, [])
   
-  // Estado para los datos del cliente
-  // Si hay un usuario logueado, usar su email, si no usar los datos del cliente guardados
   const [customerData, setCustomerData] = useState({
     name: '',
     phone: '',
@@ -22,7 +19,6 @@ export default function CartPage() {
     notes: '',
   })
   
-  // Actualizar customerData cuando cambie user o customer
   useEffect(() => {
     setCustomerData(prev => ({
       ...prev,
@@ -33,11 +29,8 @@ export default function CartPage() {
     }))
   }, [user, customer])
   
-  // Estado para mostrar confirmación de pedido
   const [orderConfirmed, setOrderConfirmed] = useState(false)
   const [orderId, setOrderId] = useState('')
-  
-  // Estado para método de pago seleccionado
   const [selectedPayment, setSelectedPayment] = useState<string>('')
 
   const formatPrice = (price: number) => {
@@ -48,24 +41,18 @@ export default function CartPage() {
     }).format(price)
   }
 
-  // Usar el WhatsApp de la configuración o el default
   const whatsappNumber = storeSettings.whatsapp?.replace(/\D/g, '') || '573159934696'
-
-  // Configuración de pedidos - asegurar que sean números
   const minOrder = Number(storeSettings.minOrder) || 0
   const shippingCost = Number(storeSettings.shippingCost) || 0
   const deliveryTime = storeSettings.deliveryTime || '3-5 días hábiles'
   
-  // Calcular si aplica envío gratis
   const freeShipping = minOrder > 0 && cartSubtotal >= minOrder
   const finalShipping = freeShipping ? 0 : shippingCost
   const totalWithShipping = cartTotal + finalShipping
 
-  // Función para guardar pedido
   const saveOrder = (paymentMethod: string) => {
     if (cart.length === 0) return null
     
-    // Validar datos del cliente
     if (!customerData.name.trim()) {
       alert('Por favor ingresa tu nombre')
       return null
@@ -79,10 +66,8 @@ export default function CartPage() {
       return null
     }
     
-    // Crear ID de pedido
     const newOrderId = `ORD-${Date.now()}`
     
-    // Usar addOrder del contexto con todos los datos del cliente
     addOrder(cart, totalWithShipping, customerData.address, {
       name: customerData.name,
       phone: customerData.phone,
@@ -92,7 +77,6 @@ export default function CartPage() {
       paymentMethod: paymentMethod,
     })
     
-    // Guardar datos del cliente para futuras compras
     setCustomer({
       name: customerData.name,
       phone: customerData.phone,
@@ -101,17 +85,13 @@ export default function CartPage() {
     })
     saveCustomer()
     
-    // Limpiar carrito
     clearCart()
-    
-    // Mostrar confirmación
     setOrderId(newOrderId)
     setOrderConfirmed(true)
     
     return newOrderId
   }
 
-  // Checkout con WhatsApp
   const handleCheckout = () => {
     const order = saveOrder('WhatsApp')
     if (!order) return
@@ -126,7 +106,6 @@ export default function CartPage() {
     window.open(whatsappUrl, '_blank')
   }
 
-  // Checkout con WhatsApp Web
   const handleCheckoutWeb = () => {
     const order = saveOrder('WhatsApp Web')
     if (!order) return
@@ -141,7 +120,6 @@ export default function CartPage() {
     window.open(whatsappUrl, '_blank')
   }
 
-  // Checkout con Transferencia
   const handleTransferCheckout = () => {
     const order = saveOrder('Transferencia Bancaria')
     if (!order) return
@@ -156,7 +134,6 @@ export default function CartPage() {
     window.open(whatsappUrl, '_blank')
   }
 
-  // Checkout con Contra Entrega
   const handleCashCheckout = () => {
     const order = saveOrder('Contra Entrega')
     if (!order) return
@@ -173,35 +150,46 @@ export default function CartPage() {
 
   if (cart.length === 0 && !orderConfirmed) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold mb-4">Tu carrito está vacío</h2>
-        <p className="text-gray-500 mb-8">Explora nuestro catálogo y agrega productos.</p>
-        <Link to="/catalog" className="inline-block bg-teal-600 text-white py-3 px-8 rounded-full font-semibold hover:bg-teal-700 transition">
-          Ver Catálogo
-        </Link>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-12 text-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShoppingBag className="w-12 h-12 text-teal-600" />
+            </div>
+            <h2 className="text-3xl font-bold mb-3 text-gray-800">Tu carrito está vacío</h2>
+            <p className="text-gray-500 mb-8 text-lg">Explora nuestro catálogo y encuentra los muebles perfectos para tu hogar.</p>
+            <Link to="/catalog" className="inline-block bg-gradient-to-r from-teal-600 to-teal-700 text-white py-4 px-10 rounded-full font-bold text-lg hover:from-teal-700 hover:to-teal-800 transition transform hover:scale-105 shadow-lg">
+              🛍️ Ver Catálogo
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
 
-  // Mostrar confirmación de pedido
   if (orderConfirmed) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold mb-4">¡Pedido Confirmado!</h2>
-          <p className="text-gray-600 mb-2">Tu pedido ha sido recibido correctamente.</p>
-          <p className="text-lg font-semibold mb-4">Número de pedido: <span className="text-teal-600">{orderId}</span></p>
-          <p className="text-sm text-gray-500 mb-6">Te contactaremos pronto para confirmar los detalles.</p>
-          <div className="space-y-3">
-            <Link to="/catalog" className="block bg-teal-600 text-white py-3 px-8 rounded-full font-semibold hover:bg-teal-700 transition">
-              Seguir Comprando
-            </Link>
-            <Link to="/orders" className="block bg-gray-200 text-gray-700 py-3 px-8 rounded-full font-medium hover:bg-gray-300 transition">
-              Ver Mis Pedidos
-            </Link>
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-10 text-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+              <CheckCircle className="w-14 h-14 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold mb-3 text-gray-800">¡Pedido Confirmado!</h2>
+            <p className="text-gray-600 mb-4 text-lg">Tu pedido ha sido recibido correctamente.</p>
+            <div className="bg-gradient-to-r from-teal-50 to-blue-50 rounded-2xl p-4 mb-6">
+              <p className="text-lg font-semibold text-gray-700">Número de pedido:</p>
+              <p className="text-2xl font-bold text-teal-600">{orderId}</p>
+            </div>
+            <p className="text-sm text-gray-500 mb-8">Te contactaremos pronto para confirmar los detalles de entrega.</p>
+            <div className="space-y-3">
+              <Link to="/catalog" className="block bg-gradient-to-r from-teal-600 to-teal-700 text-white py-3 px-8 rounded-full font-bold hover:from-teal-700 hover:to-teal-800 transition">
+                Seguir Comprando
+              </Link>
+              <Link to="/orders" className="block bg-gray-100 text-gray-700 py-3 px-8 rounded-full font-medium hover:bg-gray-200 transition">
+                Ver Mis Pedidos
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -209,311 +197,380 @@ export default function CartPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Carrito de Compras</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Columna izquierda: Datos y Pago */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Formulario de datos del cliente */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5" />
-              Datos de Envío
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Nombre completo *</label>
-                <input
-                  type="text"
-                  value={customerData.name}
-                  onChange={(e) => setCustomerData({ ...customerData, name: e.target.value })}
-                  className="w-full border rounded-lg px-4 py-2"
-                  placeholder="Tu nombre"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Teléfono *</label>
-                <input
-                  type="tel"
-                  value={customerData.phone}
-                  onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
-                  className="w-full border rounded-lg px-4 py-2"
-                  placeholder="+57 300 123 4567"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Cédula o NIT</label>
-                <input
-                  type="text"
-                  value={customerData.cedula}
-                  onChange={(e) => setCustomerData({ ...customerData, cedula: e.target.value })}
-                  className="w-full border rounded-lg px-4 py-2"
-                  placeholder="Opcional para facturación"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Notas de entrega</label>
-                <textarea
-                  value={customerData.notes}
-                  onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
-                  className="w-full border rounded-lg px-4 py-2"
-                  rows={1}
-                  placeholder="Opcional: instrucciones especiales"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input
-                  type="email"
-                  value={customerData.email}
-                  onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
-                  className="w-full border rounded-lg px-4 py-2"
-                  placeholder="tu@email.com (opcional)"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Dirección de entrega *</label>
-                <input
-                  type="text"
-                  value={customerData.address}
-                  onChange={(e) => setCustomerData({ ...customerData, address: e.target.value })}
-                  className="w-full border rounded-lg px-4 py-2"
-                  placeholder="Calle, número, barrio, ciudad"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Selección de método de pago */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-bold mb-4">Método de Pago</h2>
-            <div className="space-y-3">
-              {storeSettings.paymentWhatsapp && (
-                <label className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition ${selectedPayment === 'whatsapp' ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="whatsapp"
-                    checked={selectedPayment === 'whatsapp'}
-                    onChange={() => setSelectedPayment('whatsapp')}
-                    className="w-5 h-5"
-                  />
-                  <div>
-                    <span className="font-medium">WhatsApp</span>
-                    <p className="text-sm text-gray-500">Te contactaremos para confirmar el pedido</p>
-                  </div>
-                </label>
-              )}
-              
-              {storeSettings.paymentWhatsapp && (
-                <label className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition ${selectedPayment === 'whatsapp-web' ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="whatsapp-web"
-                    checked={selectedPayment === 'whatsapp-web'}
-                    onChange={() => setSelectedPayment('whatsapp-web')}
-                    className="w-5 h-5"
-                  />
-                  <div>
-                    <span className="font-medium">WhatsApp Web</span>
-                    <p className="text-sm text-gray-500">Envía el pedido por WhatsApp Web</p>
-                  </div>
-                </label>
-              )}
-              
-              {storeSettings.paymentTransfer && (
-                <label className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition ${selectedPayment === 'transferencia' ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="transferencia"
-                    checked={selectedPayment === 'transferencia'}
-                    onChange={() => setSelectedPayment('transferencia')}
-                    className="w-5 h-5"
-                  />
-                  <div>
-                    <span className="font-medium">Transferencia Bancaria</span>
-                    <p className="text-sm text-gray-500">Te enviaremos los datos para realizar la transferencia</p>
-                  </div>
-                </label>
-              )}
-              
-              {storeSettings.paymentCash && (
-                <label className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition ${selectedPayment === 'contraentrega' ? 'border-amber-500 bg-amber-50' : 'hover:bg-gray-50'}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="contraentrega"
-                    checked={selectedPayment === 'contraentrega'}
-                    onChange={() => setSelectedPayment('contraentrega')}
-                    className="w-5 h-5"
-                  />
-                  <div>
-                    <span className="font-medium"> Contra Entrega</span>
-                    <p className="text-sm text-gray-500">Pagas cuando recibes el producto</p>
-                  </div>
-                </label>
-              )}
-            </div>
-
-            {/* Botón de Pagar Ahora */}
-            {selectedPayment && (
-              <div className="mt-6 pt-4 border-t">
-                <button 
-                  onClick={() => {
-                    if (selectedPayment === 'whatsapp') handleCheckout()
-                    else if (selectedPayment === 'whatsapp-web') handleCheckoutWeb()
-                    else if (selectedPayment === 'transferencia') handleTransferCheckout()
-                    else if (selectedPayment === 'contraentrega') handleCashCheckout()
-                  }}
-                  className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-4 rounded-lg font-bold text-lg hover:from-teal-700 hover:to-teal-800 transition flex items-center justify-center gap-2"
-                >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                  </svg>
-                  Pagar Ahora
-                </button>
-                <p className="text-center text-sm text-gray-500 mt-2">
-                  Total a pagar: {formatPrice(totalWithShipping)}
-                </p>
-              </div>
-            )}
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
+      <div className="container mx-auto px-4">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">🛒 Carrito de Compras</h1>
+          <p className="text-gray-600">Revisa tus productos y completa tu pedido</p>
         </div>
 
-        {/* Columna derecha: Resumen y Productos */}
-        <div className="space-y-6">
-          {/* Resumen del pedido */}
-          <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
-            <h2 className="text-xl font-bold mb-4">Resumen del Pedido</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Columna izquierda: Productos y Datos (8 columnas) */}
+          <div className="lg:col-span-8 space-y-6">
             
-            {/* Info de configuración */}
-            {minOrder > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm">
-                <p className="text-blue-700">📦 Pedido mínimo para envío gratis: {formatPrice(minOrder)}</p>
-                <p className="text-blue-600 text-xs">Tu pedido actual: {formatPrice(cartSubtotal)}</p>
-                {cartSubtotal < minOrder && (
-                  <p className="text-orange-600 text-xs mt-1">
-                    Faltan {formatPrice(minOrder - cartSubtotal)} para envío gratis
-                  </p>
-                )}
+            {/* Lista de Productos */}
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+              <div className="bg-gradient-to-r from-teal-600 to-teal-700 p-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <ShoppingBag className="w-6 h-6" />
+                  Productos ({cart.length})
+                </h2>
               </div>
-            )}
-            
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span>{formatPrice(cartSubtotal)}</span>
+              
+              <div className="p-6 space-y-6">
+                {cart.map((item, index) => (
+                  <div key={item.id} className={`flex gap-4 pb-6 ${index !== cart.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                    {/* Imagen */}
+                    <div className="w-28 h-28 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-md">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-4xl">🪑</span>
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg text-gray-800 mb-1 truncate">{item.name}</h3>
+                      <p className="text-teal-600 font-bold text-xl mb-3">{formatPrice(item.price)}</p>
+                      
+                      {/* Controles de cantidad */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center bg-gray-100 rounded-full p-1">
+                          <button 
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-200 transition shadow-sm"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <span className="text-lg font-bold w-12 text-center">{item.quantity}</span>
+                          <button 
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-200 transition shadow-sm"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                        
+                        <button 
+                          onClick={() => removeFromCart(item.id)}
+                          className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-full transition"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                          <span className="text-sm font-medium">Eliminar</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Subtotal */}
+                    <div className="text-right flex flex-col justify-center">
+                      <p className="text-sm text-gray-500 mb-1">Subtotal</p>
+                      <p className="font-bold text-2xl text-gray-800">{formatPrice(item.price * item.quantity)}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between">
-                <span>IVA (19%):</span>
-                <span>{formatPrice(cartIVA)}</span>
+            </div>
+
+            {/* Datos de Envío */}
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <MapPin className="w-6 h-6" />
+                  Datos de Envío
+                </h2>
               </div>
-              <div className="flex justify-between">
-                <span>Envío:</span>
-                <span className={freeShipping ? 'text-green-600 font-medium' : ''}>
-                  {freeShipping ? 'Gratis' : formatPrice(finalShipping)}
-                </span>
-              </div>
-              {deliveryTime && (
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Tiempo de entrega:</span>
-                  <span>{deliveryTime}</span>
-                </div>
-              )}
-              <div className="border-t pt-2 mt-2">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span className="text-teal-600">{formatPrice(totalWithShipping)}</span>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nombre completo *</label>
+                    <input
+                      type="text"
+                      value={customerData.name}
+                      onChange={(e) => setCustomerData({ ...customerData, name: e.target.value })}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                      placeholder="Tu nombre completo"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
+                    <input
+                      type="tel"
+                      value={customerData.phone}
+                      onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                      placeholder="+57 300 123 4567"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={customerData.email}
+                      onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                      placeholder="tu@email.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Cédula o NIT</label>
+                    <input
+                      type="text"
+                      value={customerData.cedula}
+                      onChange={(e) => setCustomerData({ ...customerData, cedula: e.target.value })}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                      placeholder="Para facturación"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Dirección de entrega *</label>
+                    <input
+                      type="text"
+                      value={customerData.address}
+                      onChange={(e) => setCustomerData({ ...customerData, address: e.target.value })}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                      placeholder="Calle, número, barrio, ciudad"
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Notas de entrega</label>
+                    <textarea
+                      value={customerData.notes}
+                      onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"
+                      rows={2}
+                      placeholder="Instrucciones especiales para la entrega"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <button 
-              onClick={clearCart}
-              className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-300 transition"
-            >
-              Vaciar Carrito
-            </button>
-
-            {/* Políticas de confianza */}
-            {(storeSettings.returnPolicy || storeSettings.terms || storeSettings.privacy) && (
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex items-center justify-center gap-2 mb-3 text-green-600">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
-                  </svg>
-                  <span className="text-sm font-medium">Compra 100% segura</span>
-                </div>
-                <div className="flex flex-wrap justify-center gap-3 text-xs">
-                  {storeSettings.returnPolicy && (
-                    <Link to="/policies" className="text-teal-600 hover:underline">
-                      📄 Políticas de Devolución
-                    </Link>
+            {/* Método de Pago */}
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <CreditCard className="w-6 h-6" />
+                  Método de Pago
+                </h2>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {storeSettings.paymentWhatsapp && (
+                    <label className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition ${selectedPayment === 'whatsapp' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="whatsapp"
+                        checked={selectedPayment === 'whatsapp'}
+                        onChange={() => setSelectedPayment('whatsapp')}
+                        className="w-5 h-5 text-green-600"
+                      />
+                      <div className="flex-1">
+                        <span className="font-bold text-lg block">WhatsApp</span>
+                        <p className="text-sm text-gray-500">Te contactaremos para confirmar</p>
+                      </div>
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <i className="fab fa-whatsapp text-green-600 text-2xl"></i>
+                      </div>
+                    </label>
                   )}
-                  {storeSettings.terms && (
-                    <Link to="/terms" className="text-teal-600 hover:underline">
-                      📋 Términos y Condiciones
-                    </Link>
+                  
+                  {storeSettings.paymentTransfer && (
+                    <label className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition ${selectedPayment === 'transferencia' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="transferencia"
+                        checked={selectedPayment === 'transferencia'}
+                        onChange={() => setSelectedPayment('transferencia')}
+                        className="w-5 h-5 text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <span className="font-bold text-lg block">Transferencia</span>
+                        <p className="text-sm text-gray-500">Datos bancarios</p>
+                      </div>
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i className="fas fa-university text-blue-600 text-xl"></i>
+                      </div>
+                    </label>
                   )}
-                  {storeSettings.privacy && (
-                    <Link to="/privacy" className="text-teal-600 hover:underline">
-                      🔒 Política de Privacidad
-                    </Link>
+                  
+                  {storeSettings.paymentCash && (
+                    <label className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition ${selectedPayment === 'contraentrega' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="contraentrega"
+                        checked={selectedPayment === 'contraentrega'}
+                        onChange={() => setSelectedPayment('contraentrega')}
+                        className="w-5 h-5 text-amber-600"
+                      />
+                      <div className="flex-1">
+                        <span className="font-bold text-lg block">Contra Entrega</span>
+                        <p className="text-sm text-gray-500">Pagas al recibir</p>
+                      </div>
+                      <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                        <i className="fas fa-hand-holding-usd text-amber-600 text-xl"></i>
+                      </div>
+                    </label>
                   )}
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Productos en el carrito */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-bold mb-4">Productos ({cart.length})</h2>
-            <div className="space-y-4">
-              {cart.map(item => (
-                <div key={item.id} className="flex gap-4">
-                  <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-lg" />
-                    ) : (
-                      <span className="text-2xl">🪑</span>
+          {/* Columna derecha: Resumen (4 columnas) */}
+          <div className="lg:col-span-4">
+            <div className="sticky top-24 space-y-6">
+              
+              {/* Card de Resumen */}
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6">
+                  <h2 className="text-xl font-bold text-white">Resumen del Pedido</h2>
+                </div>
+                
+                <div className="p-6">
+                  {/* Info de envío gratis */}
+                  {minOrder > 0 && (
+                    <div className={`rounded-2xl p-4 mb-6 ${freeShipping ? 'bg-green-100 border-2 border-green-300' : 'bg-blue-50 border-2 border-blue-200'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${freeShipping ? 'bg-green-500' : 'bg-blue-500'}`}>
+                          <Truck className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className={`font-bold ${freeShipping ? 'text-green-700' : 'text-blue-700'}`}>
+                            {freeShipping ? '🎉 ¡Envío Gratis!' : `Faltan ${formatPrice(minOrder - cartSubtotal)}`}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {freeShipping ? 'Tu pedido califica' : `para envío gratis (min: ${formatPrice(minOrder)})`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Totales */}
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Subtotal</span>
+                      <span className="font-medium">{formatPrice(cartSubtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>IVA (19%)</span>
+                      <span className="font-medium">{formatPrice(cartIVA)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Envío</span>
+                      <span className={`font-bold ${freeShipping ? 'text-green-600' : 'text-gray-800'}`}>
+                        {freeShipping ? 'Gratis' : formatPrice(finalShipping)}
+                      </span>
+                    </div>
+                    {deliveryTime && (
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Entrega estimada</span>
+                        <span>{deliveryTime}</span>
+                      </div>
                     )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate">{item.name}</h3>
-                    <p className="text-teal-600 font-bold text-sm">{formatPrice(item.price)}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <button 
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 text-xs"
-                      >
-                        -
-                      </button>
-                      <span className="text-sm w-6 text-center">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 text-xs"
-                      >
-                        +
-                      </button>
-                      <button 
-                        onClick={() => removeFromCart(item.id)}
-                        className="ml-auto text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="border-t-2 border-gray-100 pt-4 mt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xl font-bold text-gray-800">Total</span>
+                        <span className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-teal-700 bg-clip-text text-transparent">{formatPrice(totalWithShipping)}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-sm">{formatPrice(item.price * item.quantity)}</p>
+
+                  {/* Botón de Pagar */}
+                  {selectedPayment ? (
+                    <button 
+                      onClick={() => {
+                        if (selectedPayment === 'whatsapp') handleCheckout()
+                        else if (selectedPayment === 'whatsapp-web') handleCheckoutWeb()
+                        else if (selectedPayment === 'transferencia') handleTransferCheckout()
+                        else if (selectedPayment === 'contraentrega') handleCashCheckout()
+                      }}
+                      className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-4 rounded-2xl font-bold text-lg hover:from-teal-700 hover:to-teal-800 transition transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-3"
+                    >
+                      <i className="fab fa-whatsapp text-2xl"></i>
+                      Confirmar Pedido
+                    </button>
+                  ) : (
+                    <div className="w-full bg-gray-200 text-gray-400 py-4 rounded-2xl font-bold text-lg text-center cursor-not-allowed">
+                      Selecciona método de pago
+                    </div>
+                  )}
+                  
+                  {/* Botón vaciar carrito */}
+                  <button 
+                    onClick={clearCart}
+                    className="w-full mt-4 bg-gray-100 text-gray-600 py-3 rounded-2xl font-medium hover:bg-gray-200 transition flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    Vaciar Carrito
+                  </button>
+                </div>
+              </div>
+
+              {/* Beneficios */}
+              <div className="bg-gradient-to-br from-teal-600 to-teal-800 rounded-3xl shadow-xl p-6 text-white">
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                  <ShieldCheck className="w-6 h-6" />
+                  Compra con Confianza
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <i className="fas fa-check text-sm"></i>
+                    </div>
+                    <span className="text-sm">Pago seguro</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <i className="fas fa-truck text-sm"></i>
+                    </div>
+                    <span className="text-sm">Envío a domicilio</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <i className="fas fa-undo text-sm"></i>
+                    </div>
+                    <span className="text-sm">Garantía de calidad</span>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Políticas */}
+              {(storeSettings.returnPolicy || storeSettings.terms || storeSettings.privacy) && (
+                <div className="bg-white rounded-3xl shadow-lg p-6">
+                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <Gift className="w-5 h-5 text-teal-600" />
+                    Información Importante
+                  </h3>
+                  <div className="space-y-2">
+                    {storeSettings.returnPolicy && (
+                      <Link to="/policies" className="block text-sm text-teal-600 hover:underline">
+                        📄 Políticas de Devolución
+                      </Link>
+                    )}
+                    {storeSettings.terms && (
+                      <Link to="/terms" className="block text-sm text-teal-600 hover:underline">
+                        📋 Términos y Condiciones
+                      </Link>
+                    )}
+                    {storeSettings.privacy && (
+                      <Link to="/privacy" className="block text-sm text-teal-600 hover:underline">
+                        🔒 Política de Privacidad
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
