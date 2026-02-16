@@ -18,16 +18,18 @@ const categories = [
 ]
 
 export default function Navbar() {
-  const { cartCount, wishlistCount, isLoggedIn, logout, compareList, user } = useApp()
+  const { cartCount, wishlistCount, isLoggedIn, logout, compareList, user, wishlist, viewedProducts } = useApp()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [wishlistOpen, setWishlistOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const isAdmin = user?.isAdmin === true
 
   const isActive = (path: string) => location.pathname === path
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-[9998]">
+    <header className="bg-white shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3">
@@ -100,20 +102,68 @@ export default function Navbar() {
             )}
           </Link>
           
-          {/* History */}
-          <Link to="/history" className="p-2 hover:text-teal-600 transition" title="Historial">
-            <History className={`w-6 h-6 ${isActive('/history') ? 'text-teal-600' : ''}`} />
-          </Link>
-          
-          {/* Wishlist */}
-          <Link to="/wishlist" className="relative p-2 hover:text-teal-600 transition">
-            <Heart className={`w-6 h-6 ${isActive('/wishlist') ? 'text-red-500' : ''}`} />
-            {wishlistCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                {wishlistCount}
-              </span>
+          {/* History con Dropdown */}
+          <div className="relative">
+            <button type="button" onClick={() => setHistoryOpen(!historyOpen)} className="p-2 hover:text-teal-600 transition" title="Historial">
+              <History className={`w-6 h-6 ${isActive('/history') ? 'text-teal-600' : ''}`} />
+            </button>
+            {historyOpen && viewedProducts && viewedProducts.length > 0 && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fadeIn">
+                <div className="p-3 border-b bg-gradient-to-r from-teal-50 to-blue-50">
+                  <h3 className="font-bold text-gray-800">🕐 Historial</h3>
+                  <p className="text-xs text-gray-500">{viewedProducts.length} productos visitados</p>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {viewedProducts.slice(0, 5).map((p: any) => (
+                    <Link key={p.id} to={'/product?product=' + p.id} onClick={() => setHistoryOpen(false)} className="flex items-center gap-3 p-3 hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50 border-b border-gray-50 transition">
+                      <img src={p.image || '/logo.jpg'} alt={p.name} className="w-12 h-12 object-cover rounded-lg shadow-sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                        <p className="text-xs text-orange-600 font-semibold">${p.price?.toLocaleString()}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <Link to="/history" onClick={() => setHistoryOpen(false)} className="block p-3 text-center text-sm font-semibold text-teal-600 bg-gray-50 hover:bg-teal-50 border-t">
+                  📜 Ver todo el historial →
+                </Link>
+              </div>
             )}
-          </Link>
+          </div>
+          
+          {/* Wishlist con Dropdown */}
+          <div className="relative">
+            <button type="button" onClick={() => setWishlistOpen(!wishlistOpen)} className="relative p-2 hover:text-red-500 transition">
+              <Heart className={`w-6 h-6 ${isActive('/wishlist') ? 'text-red-500' : ''} ${wishlistOpen ? 'fill-red-500' : ''}`} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                  {wishlistCount}
+                </span>
+              )}
+            </button>
+            {wishlistOpen && wishlist && wishlist.length > 0 && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fadeIn">
+                <div className="p-3 border-b bg-gradient-to-r from-red-50 to-pink-50">
+                  <h3 className="font-bold text-gray-800">❤️ Mis Favoritos</h3>
+                  <p className="text-xs text-gray-500">{wishlist.length} productos guardados</p>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {wishlist.slice(0, 5).map((p: any) => (
+                    <Link key={p.id} to={'/product?product=' + p.id} onClick={() => setWishlistOpen(false)} className="flex items-center gap-3 p-3 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 border-b border-gray-50 transition">
+                      <img src={p.image || '/logo.jpg'} alt={p.name} className="w-12 h-12 object-cover rounded-lg shadow-sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                        <p className="text-xs text-orange-600 font-semibold">${p.price?.toLocaleString()}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <Link to="/wishlist" onClick={() => setWishlistOpen(false)} className="block p-3 text-center text-sm font-semibold text-red-600 bg-gray-50 hover:bg-red-50 border-t">
+                  ❤️ Ver todos mis favoritos →
+                </Link>
+              </div>
+            )}
+          </div>
           
           {/* Cart */}
           <Link to="/cart" className="relative p-2 hover:text-teal-600 transition">
