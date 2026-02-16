@@ -16,6 +16,23 @@ const defaultImages: Record<string, string> = {
   escritorios: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=400&h=300&fit=crop',
 }
 
+// Lista de iconos de Font Awesome para seleccionar
+const iconOptions = [
+  'fa-chair', 'fa-couch', 'fa-bed', 'fa-table', 'fa-archive',
+  'fa-box', 'fa-boxes', 'fa-dungeon', 'fa-door-closed', 'fa-door-open',
+  'fa-layer-group', 'fa-store', 'fa-store-alt', 'fa-warehouse',
+  'fa-grip-lines', 'fa-grip-vertical', 'fa-ruler', 'fa-pencil-ruler',
+  'fa-screwdriver', 'fa-hammer', 'fa-tools', 'fa-paint-brush',
+  'fa-paint-roller', 'fa-laptop', 'fa-desktop', 'fa-mobile-alt',
+  'fa-cube', 'fa-cubes', 'fa-shapes', 'fa-square', 'fa-th-large',
+  'fa-th', 'fa-th-list', 'fa-border-all',
+  'fa-shoe-prints', 'fa-tshirt', 'fa-user', 'fa-users',
+  'fa-child', 'fa-baby', 'fa-tree', 'fa-leaf', 'fa-seedling',
+  'fa-truck', 'fa-shipping-fast', 'fa-shopping-bag', 'fa-shopping-cart',
+  'fa-star', 'fa-heart', 'fa-gem', 'fa-gift',
+  'fa-fire', 'fa-lightbulb', 'fa-sun', 'fa-moon'
+]
+
 export default function AdminPage() {
   const { orders, products, user, addProduct, updateProduct, deleteProduct, updateOrderStatus, storeSettings, updateStoreSettings } = useApp()
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -28,19 +45,20 @@ export default function AdminPage() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryId, setNewCategoryId] = useState('')
   const [newCategoryIcon, setNewCategoryIcon] = useState('fa-box')
+  const [newCategoryImage, setNewCategoryImage] = useState('')
   
   // Estado de categorías
   const [categories, setCategories] = useState(() => {
     const saved = localStorage.getItem('creart_categories')
     return saved ? JSON.parse(saved) : [
-      { id: 'sillas', name: 'Sillas', icon: 'fa-chair', color: 'text-teal-600' },
-      { id: 'mesas', name: 'Mesas', icon: 'fa-table', color: 'text-orange-500' },
-      { id: 'taburetes', name: 'Taburetes', icon: 'fa-square', color: 'text-green-600' },
-      { id: 'aparadores', name: 'Aparadores', icon: 'fa-dungeon', color: 'text-blue-600' },
-      { id: 'armarios', name: 'Armarios', icon: 'fa-door-closed', color: 'text-purple-600' },
-      { id: 'zapateras', name: 'Zapateras', icon: 'fa-shoe-prints', color: 'text-amber-600' },
-      { id: 'repisas', name: 'Repisas', icon: 'fa-grip-lines', color: 'text-gray-600' },
-      { id: 'escritorios', name: 'Escritorios', icon: 'fa-laptop', color: 'text-indigo-600' },
+      { id: 'sillas', name: 'Sillas', icon: 'fa-chair', color: 'text-teal-600', image: '' },
+      { id: 'mesas', name: 'Mesas', icon: 'fa-table', color: 'text-orange-500', image: '' },
+      { id: 'taburetes', name: 'Taburetes', icon: 'fa-square', color: 'text-green-600', image: '' },
+      { id: 'aparadores', name: 'Aparadores', icon: 'fa-dungeon', color: 'text-blue-600', image: '' },
+      { id: 'armarios', name: 'Armarios', icon: 'fa-door-closed', color: 'text-purple-600', image: '' },
+      { id: 'zapateras', name: 'Zapateras', icon: 'fa-shoe-prints', color: 'text-amber-600', image: '' },
+      { id: 'repisas', name: 'Repisas', icon: 'fa-grip-lines', color: 'text-gray-600', image: '' },
+      { id: 'escritorios', name: 'Escritorios', icon: 'fa-laptop', color: 'text-indigo-600', image: '' },
     ]
   })
   
@@ -633,24 +651,36 @@ export default function AdminPage() {
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Agregar Categoría</h3>
-              <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId('') }}><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId(''); setNewCategoryImage('') }}><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div><label className="block text-sm font-medium mb-1">Nombre</label><input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="w-full border rounded-lg px-4 py-2" placeholder="Ej: Muebles de Jardín" /></div>
               <div><label className="block text-sm font-medium mb-1">ID (sin espacios)</label><input type="text" value={newCategoryId} onChange={(e) => setNewCategoryId(e.target.value.toLowerCase().replace(/\s+/g, '-'))} className="w-full border rounded-lg px-4 py-2" placeholder="muebles-jardin" /></div>
-              <div><label className="block text-sm font-medium mb-1">Icono (Font Awesome)</label><input type="text" value={newCategoryIcon} onChange={(e) => setNewCategoryIcon(e.target.value)} className="w-full border rounded-lg px-4 py-2" placeholder="fa-box" /></div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Icono (Font Awesome)</label>
+                <input type="text" value={newCategoryIcon} onChange={(e) => setNewCategoryIcon(e.target.value)} className="w-full border rounded-lg px-4 py-2 mb-2" placeholder="fa-box" />
+                <div className="grid grid-cols-8 gap-1 max-h-28 overflow-y-auto border rounded p-2">
+                  {iconOptions.map(icon => (
+                    <button key={icon} type="button" onClick={() => setNewCategoryIcon(icon)} className={`p-1 rounded text-lg hover:bg-teal-100 ${newCategoryIcon === icon ? 'bg-teal-200' : ''}`} title={icon}>
+                      <i className={`fas ${icon}`}></i>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div><label className="block text-sm font-medium mb-1">URL de Imagen (ImgBB)</label><input type="text" value={newCategoryImage} onChange={(e) => setNewCategoryImage(e.target.value)} className="w-full border rounded-lg px-4 py-2" placeholder="https://i.ibb.co/..." /></div>
               <div className="flex gap-4 pt-4">
                 <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId('') }} className="flex-1 border py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
                 <button onClick={() => {
                   if (!newCategoryName.trim() || !newCategoryId.trim()) { alert('Completa todos los campos'); return }
                   if (categories.find(c => c.id === newCategoryId)) { alert('Ya existe'); return }
-                  const newCat = { id: newCategoryId, name: newCategoryName, icon: newCategoryIcon || 'fa-box', color: 'text-teal-600' }
+                  const newCat = { id: newCategoryId, name: newCategoryName, icon: newCategoryIcon || 'fa-box', color: 'text-teal-600', image: newCategoryImage || '' }
                   const updated = [...categories, newCat]
                   setCategories(updated)
                   localStorage.setItem('creart_categories', JSON.stringify(updated))
                   setShowCategoryModal(false)
                   setNewCategoryName('')
                   setNewCategoryId('')
+                  setNewCategoryImage('')
                   alert('Categoría creada')
                 }} className="flex-1 bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600">Crear</button>
               </div>

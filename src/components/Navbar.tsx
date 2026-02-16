@@ -18,16 +18,18 @@ const categories = [
 ]
 
 export default function Navbar() {
-  const { cartCount, wishlistCount, isLoggedIn, logout, compareList, user } = useApp()
+  const { cartCount, wishlistCount, isLoggedIn, logout, compareList, user, wishlist, viewedProducts } = useApp()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showWishlist, setShowWishlist] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const isAdmin = user?.isAdmin === true
 
   const isActive = (path: string) => location.pathname === path
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-[9998]">
+    <header className="bg-white shadow-md sticky top-0 z-40">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3">
@@ -101,19 +103,51 @@ export default function Navbar() {
           </Link>
           
           {/* History */}
-          <Link to="/history" className="p-2 hover:text-teal-600 transition" title="Historial">
-            <History className={`w-6 h-6 ${isActive('/history') ? 'text-teal-600' : ''}`} />
-          </Link>
+          <div className="relative">
+            <button type="button" onClick={() => setShowHistory(!showHistory)} className="p-2 hover:text-teal-600 transition" title="Historial">
+              <History className={`w-6 h-6 ${isActive('/history') ? 'text-teal-600' : ''}`} />
+            </button>
+            {showHistory && viewedProducts && viewedProducts.length > 0 && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border z-50">
+                <div className="p-2 border-b font-semibold text-sm">Historial ({viewedProducts.length})</div>
+                <div className="max-h-60 overflow-y-auto">
+                  {viewedProducts.slice(0, 5).map((p: any) => (
+                      <Link key={p.id} to={'/product?product=' + p.id} onClick={() => setShowHistory(false)} className="flex items-center gap-2 p-2 hover:bg-gray-50">
+                      <img src={p.image || '/logo.jpg'} alt={p.name} className="w-10 h-10 object-cover rounded" />
+                      <span className="text-sm truncate">{p.name}</span>
+                    </Link>
+                  ))}
+                </div>
+                <Link to="/history" onClick={() => setShowHistory(false)} className="block p-2 text-center text-sm text-teal-600 border-t">Ver todo</Link>
+              </div>
+            )}
+          </div>
           
           {/* Wishlist */}
-          <Link to="/wishlist" className="relative p-2 hover:text-teal-600 transition">
-            <Heart className={`w-6 h-6 ${isActive('/wishlist') ? 'text-red-500' : ''}`} />
-            {wishlistCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                {wishlistCount}
-              </span>
+          <div className="relative">
+            <button type="button" onClick={() => setShowWishlist(!showWishlist)} className="relative p-2 hover:text-teal-600 transition">
+              <Heart className={`w-6 h-6 ${isActive('/wishlist') ? 'text-red-500' : ''}`} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  {wishlistCount}
+                </span>
+              )}
+            </button>
+            {showWishlist && wishlist && wishlist.length > 0 && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border z-50">
+                <div className="p-2 border-b font-semibold text-sm">Mis Favoritos ({wishlist.length})</div>
+                <div className="max-h-60 overflow-y-auto">
+                  {wishlist.slice(0, 5).map((p: any) => (
+                      <Link key={p.id} to={'/product?product=' + p.id} onClick={() => setShowWishlist(false)} className="flex items-center gap-2 p-2 hover:bg-gray-50">
+                      <img src={p.image || '/logo.jpg'} alt={p.name} className="w-10 h-10 object-cover rounded" />
+                      <span className="text-sm truncate">{p.name}</span>
+                    </Link>
+                  ))}
+                </div>
+                <Link to="/wishlist" onClick={() => setShowWishlist(false)} className="block p-2 text-center text-sm text-teal-600 border-t">Ver todo</Link>
+              </div>
             )}
-          </Link>
+          </div>
           
           {/* Cart */}
           <Link to="/cart" className="relative p-2 hover:text-teal-600 transition">

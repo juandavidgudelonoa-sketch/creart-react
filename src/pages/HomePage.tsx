@@ -4,14 +4,14 @@ import { useApp } from '../context/AppContext'
 
 // Categorías por defecto (se sobrescriben con las guardadas)
 const defaultCategories = [
-  { id: 'sillas', name: 'Sillas', icon: 'fa-chair', color: 'text-teal-600' },
-  { id: 'mesas', name: 'Mesas', icon: 'fa-table', color: 'text-orange-500' },
-  { id: 'taburetes', name: 'Taburetes', icon: 'fa-square', color: 'text-green-600' },
-  { id: 'aparadores', name: 'Aparadores', icon: 'fa-dungeon', color: 'text-blue-600' },
-  { id: 'armarios', name: 'Armarios', icon: 'fa-door-closed', color: 'text-purple-600' },
-  { id: 'zapateras', name: 'Zapateras', icon: 'fa-shoe-prints', color: 'text-amber-600' },
-  { id: 'repisas', name: 'Repisas', icon: 'fa-grip-lines', color: 'text-gray-600' },
-  { id: 'escritorios', name: 'Escritorios', icon: 'fa-laptop', color: 'text-indigo-600' },
+  { id: 'sillas', name: 'Sillas', icon: 'fa-chair', color: 'text-teal-600', image: '' },
+  { id: 'mesas', name: 'Mesas', icon: 'fa-table', color: 'text-orange-500', image: '' },
+  { id: 'taburetes', name: 'Taburetes', icon: 'fa-square', color: 'text-green-600', image: '' },
+  { id: 'aparadores', name: 'Aparadores', icon: 'fa-dungeon', color: 'text-blue-600', image: '' },
+  { id: 'armarios', name: 'Armarios', icon: 'fa-door-closed', color: 'text-purple-600', image: '' },
+  { id: 'zapateras', name: 'Zapateras', icon: 'fa-shoe-prints', color: 'text-amber-600', image: '' },
+  { id: 'repisas', name: 'Repisas', icon: 'fa-grip-lines', color: 'text-gray-600', image: '' },
+  { id: 'escritorios', name: 'Escritorios', icon: 'fa-laptop', color: 'text-indigo-600', image: '' },
 ]
 
 export default function HomePage() {
@@ -83,9 +83,13 @@ export default function HomePage() {
           <span className="block w-16 h-1 bg-gradient-to-r from-orange-500 to-teal-500 mx-auto mt-4"></span>
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {categories.filter(cat => storeSettings.categoriesVisibility?.[cat.id] !== false).map(cat => (
+          {categories.filter((cat: any) => storeSettings.categoriesVisibility?.[cat.id] !== false).map((cat: any) => (
             <Link to={`/catalog/${cat.id}`} key={cat.id} className="bg-white rounded-lg shadow-md p-6 text-center hover:shadow-xl transition">
-              <i className={`fas ${cat.icon} ${cat.color} text-5xl mb-3`}></i>
+              {cat.image ? (
+                <img src={cat.image} alt={cat.name} className="w-full h-24 object-contain mb-3" />
+              ) : (
+                <i className={`fas ${cat.icon} ${cat.color} text-5xl mb-3`}></i>
+              )}
               <h3 className="text-lg font-semibold">{cat.name}</h3>
             </Link>
           ))}
