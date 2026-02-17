@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Package, ShoppingCart, DollarSign, TrendingUp, Settings, Plus, Edit, Trash2, Shield, X, Image as ImageIcon, Eye, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Package, ShoppingCart, TrendingUp, Settings, Plus, Edit, Trash2, Shield, X, CheckCircle, AlertTriangle } from 'lucide-react'
 import { useApp, Product, Order } from '../context/AppContext'
 import SettingsPanel from '../components/SettingsPanel'
+
+// Tipo para categorías
+interface Category {
+  id: string
+  name: string
+  icon: string
+  color: string
+  image: string
+}
 
 // Default image URLs by category
 const defaultImages: Record<string, string> = {
@@ -48,7 +57,7 @@ export default function AdminPage() {
   const [newCategoryImage, setNewCategoryImage] = useState('')
   
   // Estado de categorías
-  const [categories, setCategories] = useState(() => {
+  const [categories, setCategories] = useState<Category[]>(() => {
     const saved = localStorage.getItem('creart_categories')
     return saved ? JSON.parse(saved) : [
       { id: 'sillas', name: 'Sillas', icon: 'fa-chair', color: 'text-teal-600', image: '' },
@@ -519,7 +528,7 @@ export default function AdminPage() {
             <div className="bg-gray-50 border rounded-lg p-4 mb-6">
               <h3 className="font-semibold mb-3">Categorías</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {categories.map(cat => (
+                {categories.map((cat: Category) => (
                   <div key={cat.id} className="flex items-center gap-2 p-3 bg-white rounded border">
                     <input type="checkbox" checked={storeSettings.categoriesVisibility?.[cat.id] !== false} onChange={(e) => updateStoreSettings({ categoriesVisibility: { ...storeSettings.categoriesVisibility, [cat.id]: e.target.checked } })} className="w-4 h-4" />
                     <span className="flex-1 text-sm font-medium">{cat.name}</span>
@@ -527,7 +536,7 @@ export default function AdminPage() {
                       const newName = prompt('Editar nombre:', cat.name)
                       if (newName && newName.trim()) {
                         const newIcon = prompt('Icono (Font Awesome):', cat.icon)
-                        const updated = categories.map(c => c.id === cat.id ? { ...c, name: newName.trim(), icon: newIcon?.trim() || c.icon } : c)
+                        const updated = categories.map((c: Category) => c.id === cat.id ? { ...c, name: newName.trim(), icon: newIcon?.trim() || c.icon } : c)
                         setCategories(updated)
                         localStorage.setItem('creart_categories', JSON.stringify(updated))
                       }
@@ -535,7 +544,7 @@ export default function AdminPage() {
                     <button onClick={() => {
                       if (products.some(p => p.category === cat.id)) { alert('Tiene productos'); return }
                       if (confirm(`Eliminar "${cat.name}"?`)) {
-                        const updated = categories.filter(c => c.id !== cat.id)
+                        const updated = categories.filter((c: Category) => c.id !== cat.id)
                         setCategories(updated)
                         localStorage.setItem('creart_categories', JSON.stringify(updated))
                       }
@@ -547,7 +556,7 @@ export default function AdminPage() {
 
             {/* Productos por categoría */}
             <div className="space-y-6">
-              {categories.map(cat => {
+              {categories.map((cat: Category) => {
                 const catProducts = products.filter(p => p.category === cat.id)
                 if (catProducts.length === 0) return null
                 return (
@@ -600,7 +609,7 @@ export default function AdminPage() {
             <form onSubmit={handleSave} className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium mb-1">Nombre *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full border rounded-lg px-4 py-2" required /></div>
-                <div><label className="block text-sm font-medium mb-1">Categoría *</label><select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full border rounded-lg px-4 py-2">{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                <div><label className="block text-sm font-medium mb-1">Categoría *</label><select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full border rounded-lg px-4 py-2">{categories.map((c: Category) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                 <div><label className="block text-sm font-medium mb-1">Precio *</label><input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full border rounded-lg px-4 py-2" required /></div>
                 <div><label className="block text-sm font-medium mb-1">Precio anterior</label><input type="number" value={formData.originalPrice} onChange={(e) => setFormData({ ...formData, originalPrice: Number(e.target.value) })} className="w-full border rounded-lg px-4 py-2" /></div>
                 <div><label className="block text-sm font-medium mb-1">Stock</label><input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} className="w-full border rounded-lg px-4 py-2" /></div>
@@ -672,7 +681,7 @@ export default function AdminPage() {
                 <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId('') }} className="flex-1 border py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
                 <button onClick={() => {
                   if (!newCategoryName.trim() || !newCategoryId.trim()) { alert('Completa todos los campos'); return }
-                  if (categories.find(c => c.id === newCategoryId)) { alert('Ya existe'); return }
+                  if (categories.find((c: Category) => c.id === newCategoryId)) { alert('Ya existe'); return }
                   const newCat = { id: newCategoryId, name: newCategoryName, icon: newCategoryIcon || 'fa-box', color: 'text-teal-600', image: newCategoryImage || '' }
                   const updated = [...categories, newCat]
                   setCategories(updated)
