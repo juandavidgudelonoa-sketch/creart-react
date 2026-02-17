@@ -1,58 +1,65 @@
 {
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
   
+  "providers": {
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "enabled": true
+    }
+  },
+  
   "agents": {
     "coder": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/qwen3-coder:480b-cloud",
       "temperature": 0.3,
-      "description": "Agente especializado en escribir código limpio y eficiente",
-      "system_prompt": "Eres un desarrollador experto en React, TypeScript y Tailwind CSS. Escribe código limpio, tipado correctamente y siguiendo las mejores prácticas."
+      "description": "Agente especializado en escribir código limpio y eficiente (Ollama local)",
+      "system_prompt": "Eres un desarrollador experto en React, TypeScript y Tailwind CSS. Escribe código limpio, tipado correctamente y siguiendo las mejores prácticas. Proporciona código completo y funcional."
     },
     "reviewer": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/qwen3-coder:480b-cloud",
       "temperature": 0.4,
-      "description": "Agente especializado en revisar código y detectar errores",
-      "system_prompt": "Eres un code reviewer experto. Analiza el código en busca de errores, mejoras de rendimiento, problemas de seguridad y violaciones de las mejores prácticas."
+      "description": "Agente especializado en revisar código y detectar errores (Ollama local)",
+      "system_prompt": "Eres un code reviewer experto. Analiza el código en busca de errores, mejoras de rendimiento, problemas de seguridad y violaciones de las mejores prácticas. Sé detallado y específico."
     },
     "researcher": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/deepseek-v3.1:671b-cloud",
       "temperature": 0.7,
-      "description": "Agente especializado en investigar soluciones y debuggear",
-      "system_prompt": "Eres un investigador técnico. Busca información sobre problemas complejos, investiga soluciones alternativas y ayuda a debuggear errores difíciles."
+      "description": "Agente especializado en investigar soluciones y debuggear (Ollama local)",
+      "system_prompt": "Eres un investigador técnico experto. Busca información sobre problemas complejos, investiga múltiples soluciones alternativas y proporciona análisis detallado de cada opción."
     },
     "designer": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/gpt-oss:120b-cloud",
       "temperature": 0.6,
-      "description": "Agente especializado en diseño UI/UX",
-      "system_prompt": "Eres un diseñador UI/UX experto. Mejora la interfaz, agrega animaciones suaves, y asegura una experiencia de usuario excelente."
+      "description": "Agente especializado en diseño UI/UX (Ollama local)",
+      "system_prompt": "Eres un diseñador UI/UX experto. Mejora la interfaz con estilos modernos, agrega animaciones suaves, gradientes, sombras y asegura una experiencia de usuario excelente. Proporciona código CSS/Tailwind completo."
     },
     "backend": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/deepseek-v3.1:671b-cloud",
       "temperature": 0.3,
-      "description": "Agente especializado en backend y Firebase",
-      "system_prompt": "Eres un desarrollador backend experto en Firebase, Node.js y bases de datos. Configura autenticación, bases de datos y APIs."
+      "description": "Agente especializado en backend y Firebase (Ollama local)",
+      "system_prompt": "Eres un desarrollador backend experto en Firebase, Node.js y bases de datos. Configura autenticación, bases de datos y APIs. Proporciona código de integración paso a paso."
     }
   },
   
   "categories": {
     "quick": {
-      "model": "opencode/gpt-5-nano",
+      "model": "ollama/qwen3-coder:480b-cloud",
       "temperature": 0.4
     },
     "code": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/qwen3-coder:480b-cloud",
       "temperature": 0.3
     },
     "review": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/qwen3-coder:480b-cloud",
       "temperature": 0.4
     },
     "research": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/deepseek-v3.1:671b-cloud",
       "temperature": 0.7
     },
     "design": {
-      "model": "anthropic/claude-opus-4",
+      "model": "ollama/gpt-oss:120b-cloud",
       "temperature": 0.6
     }
   },
@@ -60,28 +67,39 @@
   "commands": {
     "implement": {
       "agent": "coder",
-      "description": "Implementar una feature o cambio de código",
-      "prompt_template": "Implementa el siguiente cambio: {task}\n\nContexto del proyecto CREART:\n- Tienda de muebles en React + TypeScript + Tailwind\n- Usa localStorage actualmente\n- Próximamente migrará a Firebase\n\nEscribe código limpio, bien tipado y siguiendo las mejores prácticas."
+      "description": "Implementar una feature o cambio de código (usando Ollama local)",
+      "prompt_template": "Implementa el siguiente cambio: {task}\n\nContexto del proyecto CREART:\n- Tienda de muebles en React + TypeScript + Tailwind\n- Usa localStorage actualmente\n- Próximamente migrará a Firebase\n- Ubicación: C:\\Users\\equipo\\OneDrive\\Desktop\\Carpinteria creart\\creart-react\n\nEscribe código limpio, bien tipado y siguiendo las mejores prácticas. Proporciona el código completo."
     },
     "review": {
       "agent": "reviewer",
-      "description": "Revisar cambios no commiteados",
-      "prompt_template": "Revisa los cambios actuales en el repositorio. Busca:\n1. Errores de sintaxis o lógica\n2. Problemas de seguridad\n3. Violaciones de buenas prácticas\n4. Oportunidades de mejora\n\nProporciona feedback detallado y sugerencias."
+      "description": "Revisar cambios no commiteados (usando Ollama local)",
+      "prompt_template": "Revisa los cambios actuales en el repositorio CREART. Busca:\n1. Errores de sintaxis o lógica\n2. Problemas de seguridad\n3. Violaciones de buenas prácticas\n4. Oportunidades de mejora\n5. Problemas de TypeScript\n6. Mejoras de rendimiento\n\nProporciona feedback detallado y sugerencias específicas."
     },
     "debug": {
       "agent": "researcher",
-      "description": "Investigar y solucionar un bug",
-      "prompt_template": "Investiga el siguiente problema: {issue}\n\nBusca en el código, identifica la causa raíz y propone soluciones. Considera diferentes enfoques y elige el más apropiado."
+      "description": "Investigar y solucionar un bug (usando Ollama local)",
+      "prompt_template": "Investiga el siguiente problema en CREART: {issue}\n\nBusca en el código, identifica la causa raíz y propone soluciones. Considera diferentes enfoques y elige el más apropiado. Proporciona código corregido."
     },
     "design-ui": {
       "agent": "designer",
-      "description": "Mejorar diseño de componentes",
-      "prompt_template": "Mejora el diseño de: {component}\n\nAgrega:\n- Animaciones suaves\n- Mejores colores y espaciados\n- Estados hover y focus\n- Responsive design\n\nHaz que se vea profesional y moderno."
+      "description": "Mejorar diseño de componentes (usando Ollama local)",
+      "prompt_template": "Mejora el diseño de: {component}\n\nAgrega:\n- Animaciones suaves con CSS/Tailwind\n- Mejores colores y espaciados\n- Estados hover y focus\n- Responsive design\n- Sombras y gradientes modernos\n\nHaz que se vea profesional y moderno. Proporciona el código completo."
     },
     "setup-backend": {
       "agent": "backend",
-      "description": "Configurar backend con Firebase",
-      "prompt_template": "Configura Firebase para el proyecto CREART:\n1. Autenticación de usuarios\n2. Base de datos Firestore\n3. Storage para imágenes\n\nGuía paso a paso y código de integración."
+      "description": "Configurar backend con Firebase (usando Ollama local)",
+      "prompt_template": "Configura Firebase para el proyecto CREART:\n1. Autenticación de usuarios\n2. Base de datos Firestore\n3. Storage para imágenes\n4. Seguridad y reglas\n\nGuía paso a paso y código de integración completo."
+    },
+    "ask": {
+      "agent": "researcher",
+      "description": "Preguntar sobre el código o hacer consultas generales",
+      "prompt_template": "Responde la siguiente pregunta sobre el proyecto CREART: {question}\n\nProporciona una respuesta clara y detallada."
     }
+  },
+  
+  "settings": {
+    "default_provider": "ollama",
+    "local_mode": true,
+    "offline_capable": true
   }
 }
