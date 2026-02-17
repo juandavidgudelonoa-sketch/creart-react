@@ -160,7 +160,7 @@ export default function Navbar() {
                 <div className="max-h-64 overflow-y-auto">
                   {wishlist.slice(0, 5).map((p: any) => (
                     <Link key={p.id} to={'/product?product=' + p.id} onClick={() => setWishlistOpen(false)} className="flex items-center gap-3 p-3 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 border-b border-gray-50 transition">
-                      <img src={p.image || '/logo.jpg'} alt={p.name} className="w-12 h-12 object-cover rounded-lg shadow-sm" />
+                      <img src={p.image || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=100&h=100&fit=crop'} alt={p.name} className="w-12 h-12 object-cover rounded-lg shadow-sm" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
                         <p className="text-xs text-orange-600 font-semibold">${p.price?.toLocaleString()}</p>
