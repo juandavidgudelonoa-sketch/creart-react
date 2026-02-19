@@ -1,10 +1,12 @@
 import { Link } from 'react-router'
 import { Minus, Plus, Trash2, CheckCircle, ShoppingBag, MapPin, CreditCard, Truck, ShieldCheck, Gift } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useState, useEffect } from 'react'
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, cartSubtotal, cartIVA, cartTotal, clearCart, customer, storeSettings, user, loadCustomer, addOrder, setCustomer, saveCustomer } = useApp()
+  const { user: authUser, customer: authCustomer } = useAuth()
   
   useEffect(() => {
     loadCustomer()
@@ -20,14 +22,18 @@ export default function CartPage() {
   })
   
   useEffect(() => {
+    // Combinar datos del usuario de ambos contextos
+    const userData = authUser || user
+    const customerDataSource = authCustomer || customer
+    
     setCustomerData(prev => ({
       ...prev,
-      name: customer.name || user?.name || prev.name,
-      phone: customer.phone || prev.phone,
-      address: customer.address || prev.address,
-      email: user?.email || customer.email || prev.email,
+      name: customerDataSource.name || userData?.name || prev.name,
+      phone: customerDataSource.phone || prev.phone,
+      address: customerDataSource.address || prev.address,
+      email: userData?.email || customerDataSource.email || prev.email,
     }))
-  }, [user, customer])
+  }, [user, customer, authUser, authCustomer])
   
   const [orderConfirmed, setOrderConfirmed] = useState(false)
   const [orderId, setOrderId] = useState('')
@@ -71,11 +77,11 @@ export default function CartPage() {
     addOrder(cart, totalWithShipping, customerData.address, {
       name: customerData.name,
       phone: customerData.phone,
-      email: customerData.email,
+      email: customerData.email || authUser?.email || '',
       cedula: customerData.cedula,
       notes: customerData.notes,
       paymentMethod: paymentMethod,
-    })
+    }, authUser?.email)
     
     setCustomer({
       name: customerData.name,

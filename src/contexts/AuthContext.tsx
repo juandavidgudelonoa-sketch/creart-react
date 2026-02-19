@@ -1,16 +1,33 @@
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react'
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signOut, 
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  User as FirebaseUser,
+  updateProfile
+} from 'firebase/auth'
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
+import { auth, googleProvider, db } from '../firebase'
 import type { Customer, User } from '../types'
 
 interface AuthContextType {
   user: User | null
+  firebaseUser: FirebaseUser | null
   customer: Customer
   isLoggedIn: boolean
   isAdmin: boolean
-  login: (email: string, password: string) => boolean
-  logout: () => void
+  loading: boolean
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>
+  loginWithGoogle: () => Promise<{ success: boolean; message: string }>
+  logout: () => Promise<void>
   setCustomer: (customer: Customer) => void
-  saveCustomer: () => void
-  loadCustomer: () => void
+  saveCustomer: () => Promise<void>
+  loadCustomer: () => Promise<void>
+  updateUserProfile: (name: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -22,71 +39,255 @@ const defaultCustomer: Customer = {
   address: ''
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window === 'undefined') return null
-    const saved = localStorage.getItem('creart_user')
-    return saved ? JSON.parse(saved) : null
-  })
+// Función para verificar si es admin
+const checkIsAdmin = async (email: string): Promise<boolean> => {
+  if (!email) return false
+  
+  try {
+    // Verificar documento específico "admin" con ID "admin"
+    const adminDoc = await getDoc(doc(db, 'admins', 'admin'))
+    if (adminDoc.exists()) {
+      const data = adminDoc.data()
+      // Verificar si el email del usuario coincide con el admin registrado
+      if (data.email === email && data.role === 'admin') {
+        return true
+      }
+    }
+    return false
+  } catch (error) {
+    console.error('Error checking admin:', error)
+    return false
+  }
+}
 
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [customer, setCustomerState] = useState<Customer>(() => {
     if (typeof window === 'undefined') return defaultCustomer
     const saved = localStorage.getItem('creart_customer')
     return saved ? JSON.parse(saved) : defaultCustomer
   })
+  const [loading, setLoading] = useState(true)
 
-  const isLoggedIn = useMemo(() => user !== null, [user])
+  const isLoggedIn = useMemo(() => firebaseUser !== null, [firebaseUser])
   const isAdmin = useMemo(() => user?.isAdmin === true, [user])
 
-  const login = useCallback((email: string, password: string): boolean => {
-    // Simulación de login - en producción esto vendría de backend
-    const mockUsers = [
-      { id: '1', email: 'admin@creart.com', password: 'admin123', name: 'Administrador', isAdmin: true },
-      { id: '2', email: 'cliente@ejemplo.com', password: 'cliente123', name: 'Cliente', isAdmin: false }
-    ]
-    
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password)
-    
-    if (foundUser) {
-      const { password, ...userWithoutPassword } = foundUser
-      setUser(userWithoutPassword as User)
-      localStorage.setItem('creart_user', JSON.stringify(userWithoutPassword))
-      return true
-    }
-    return false
+  // Escuchar cambios en el estado de autenticación
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseUser(fbUser)
+      if (fbUser) {
+        const isAdminUser = await checkIsAdmin(fbUser.email || '')
+        const userData: User = {
+          id: fbUser.uid,
+          email: fbUser.email || '',
+          name: fbUser.displayName || fbUser.email?.split('@')[0] || '',
+          isAdmin: isAdminUser
+        }
+        setUser(userData)
+        // Cargar datos del cliente desde Firestore
+        try {
+          const customerDoc = await getDoc(doc(db, 'customers', fbUser.uid))
+          if (customerDoc.exists()) {
+            setCustomerState(customerDoc.data() as Customer)
+          } else {
+            // Crear cliente nuevo si no existe
+            const newCustomer: Customer = {
+              name: fbUser.displayName || '',
+              email: fbUser.email || '',
+              phone: '',
+              address: ''
+            }
+            setCustomerState(newCustomer)
+          }
+        } catch (error) {
+          console.error('Error loading customer:', error)
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [])
 
-  const logout = useCallback(() => {
-    setUser(null)
-    localStorage.removeItem('creart_user')
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      setLoading(true)
+      const result = await signInWithEmailAndPassword(auth, email, password)
+      const isAdminUser = await checkIsAdmin(result.user.email || '')
+      
+      const userData: User = {
+        id: result.user.uid,
+        email: result.user.email || '',
+        name: result.user.displayName || result.user.email?.split('@')[0] || '',
+        isAdmin: isAdminUser
+      }
+      setUser(userData)
+      return { success: true, message: 'Login exitoso' }
+    } catch (error: any) {
+      console.error('Login error:', error)
+      let message = 'Error al iniciar sesión'
+      if (error.code === 'auth/invalid-email') {
+        message = 'Email inválido'
+      } else if (error.code === 'auth/user-not-found') {
+        message = 'Usuario no encontrado'
+      } else if (error.code === 'auth/wrong-password') {
+        message = 'Contraseña incorrecta'
+      } else if (error.code === 'auth/invalid-credential') {
+        message = 'Credenciales incorrectas'
+      }
+      return { success: false, message }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const register = useCallback(async (name: string, email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      setLoading(true)
+      const result = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Actualizar perfil con el nombre
+      await updateProfile(result.user, { displayName: name })
+      
+      // Guardar en Firestore
+      const newCustomer: Customer = {
+        name,
+        email,
+        phone: '',
+        address: ''
+      }
+      await setDoc(doc(db, 'customers', result.user.uid), {
+        ...newCustomer,
+        createdAt: serverTimestamp()
+      })
+      
+      setCustomerState(newCustomer)
+      return { success: true, message: 'Registro exitoso' }
+    } catch (error: any) {
+      console.error('Register error:', error)
+      let message = 'Error al registrarse'
+      if (error.code === 'auth/email-already-in-use') {
+        message = 'El email ya está registrado'
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Email inválido'
+      } else if (error.code === 'auth/weak-password') {
+        message = 'La contraseña debe tener al menos 6 caracteres'
+      }
+      return { success: false, message }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const loginWithGoogle = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      setLoading(true)
+      const result = await signInWithPopup(auth, googleProvider)
+      const isAdminUser = await checkIsAdmin(result.user.email || '')
+      
+      // Verificar si ya existe el cliente
+      const customerDoc = await getDoc(doc(db, 'customers', result.user.uid))
+      if (!customerDoc.exists()) {
+        const newCustomer: Customer = {
+          name: result.user.displayName || '',
+          email: result.user.email || '',
+          phone: '',
+          address: ''
+        }
+        await setDoc(doc(db, 'customers', result.user.uid), {
+          ...newCustomer,
+          createdAt: serverTimestamp()
+        })
+        setCustomerState(newCustomer)
+      }
+      
+      return { success: true, message: 'Login con Google exitoso' }
+    } catch (error: any) {
+      console.error('Google login error:', error)
+      let message = 'Error con Google'
+      if (error.code === 'auth/popup-closed-by-user') {
+        message = 'Ventana cerrada por el usuario'
+      }
+      return { success: false, message }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const logout = useCallback(async () => {
+    try {
+      await signOut(auth)
+      setUser(null)
+      setFirebaseUser(null)
+      setCustomerState(defaultCustomer)
+      localStorage.removeItem('creart_customer')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
   }, [])
 
   const setCustomer = useCallback((newCustomer: Customer) => {
     setCustomerState(newCustomer)
   }, [])
 
-  const saveCustomer = useCallback(() => {
-    localStorage.setItem('creart_customer', JSON.stringify(customer))
-  }, [customer])
-
-  const loadCustomer = useCallback(() => {
-    const saved = localStorage.getItem('creart_customer')
-    if (saved) {
-      setCustomerState(JSON.parse(saved))
+  const saveCustomer = useCallback(async () => {
+    if (firebaseUser) {
+      try {
+        await setDoc(doc(db, 'customers', firebaseUser.uid), {
+          ...customer,
+          updatedAt: serverTimestamp()
+        }, { merge: true })
+        localStorage.setItem('creart_customer', JSON.stringify(customer))
+      } catch (error) {
+        console.error('Error saving customer:', error)
+      }
     }
-  }, [])
+  }, [customer, firebaseUser])
+
+  const loadCustomer = useCallback(async () => {
+    if (firebaseUser) {
+      try {
+        const customerDoc = await getDoc(doc(db, 'customers', firebaseUser.uid))
+        if (customerDoc.exists()) {
+          setCustomerState(customerDoc.data() as Customer)
+        }
+      } catch (error) {
+        console.error('Error loading customer:', error)
+      }
+    }
+  }, [firebaseUser])
+
+  const updateUserProfile = useCallback(async (name: string) => {
+    if (firebaseUser) {
+      try {
+        await updateProfile(firebaseUser, { displayName: name })
+        setUser(prev => prev ? { ...prev, name } : null)
+      } catch (error) {
+        console.error('Error updating profile:', error)
+      }
+    }
+  }, [firebaseUser])
 
   const value = useMemo(() => ({
     user,
+    firebaseUser,
     customer,
     isLoggedIn,
     isAdmin,
+    loading,
     login,
+    register,
+    loginWithGoogle,
     logout,
     setCustomer,
     saveCustomer,
     loadCustomer,
-  }), [user, customer, isLoggedIn, isAdmin, login, logout, setCustomer, saveCustomer, loadCustomer])
+    updateUserProfile
+  }), [user, firebaseUser, customer, isLoggedIn, isAdmin, loading, login, register, loginWithGoogle, logout, setCustomer, saveCustomer, loadCustomer, updateUserProfile])
 
   return (
     <AuthContext.Provider value={value}>

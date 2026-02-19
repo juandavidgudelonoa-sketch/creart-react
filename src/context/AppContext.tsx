@@ -152,7 +152,7 @@ interface AppContextType {
   
   // Orders
   orders: Order[]
-  addOrder: (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }) => void
+  addOrder: (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }, userEmail?: string) => void
   updateOrderStatus: (orderId: string, status: Order['status']) => void
   getOrderById: (orderId: string) => Order | undefined
   
@@ -298,7 +298,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reviews, setReviews] = useState<Review[]>(() => {
     const saved = localStorage.getItem('creart_reviews')
     return saved ? JSON.parse(saved) : [
-      { id: '1', productId: 'silla-elly', userName: 'Carlos M.', rating: 5, comment: 'Excelente calidad, muy cómoda', date: '2026-01-15' },
+      { id: '1', productId: 'silla-ely', userName: 'Carlos M.', rating: 5, comment: 'Excelente calidad, muy cómoda', date: '2026-01-15' },
       { id: '2', productId: 'mesa-nova', userName: 'Ana L.', rating: 5, comment: 'Hermosa mesa, perfecta para nuestra familia', date: '2026-01-20' },
     ]
   })
@@ -356,6 +356,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         zapateras: true,
         repisas: true,
         escritorios: true,
+        'centro-entretenimiento': true,
+        'mueble-bano': true,
       },
     }
   })
@@ -469,7 +471,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearCompare = () => setCompareList([])
 
   // Orders functions
-  const addOrder = (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }) => {
+  const addOrder = (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }, userEmail?: string) => {
     const newOrder: Order = {
       id: `ORD-${Date.now()}`,
       date: new Date().toLocaleDateString('es-CO'),
@@ -479,7 +481,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       shippingAddress: address || customer.address,
       customerName: customerData?.name || customer.name,
       customerPhone: customerData?.phone || customer.phone,
-      customerEmail: customerData?.email || customer.email,
+      customerEmail: customerData?.email || customer.email || userEmail || '',
       customerCedula: customerData?.cedula,
       customerNotes: customerData?.notes,
       paymentMethod: customerData?.paymentMethod,
@@ -525,11 +527,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   // Reviews functions
-  const addReview = (productId: string, rating: number, comment: string) => {
+  const addReview = (productId: string, rating: number, comment: string, userName?: string) => {
     const newReview: Review = {
       id: Date.now().toString(),
       productId,
-      userName: user?.name || 'Usuario',
+      userName: userName || 'Usuario',
       rating,
       comment,
       date: new Date().toLocaleDateString('es-CO'),

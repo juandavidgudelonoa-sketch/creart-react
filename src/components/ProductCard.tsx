@@ -64,11 +64,11 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   }, [product.category])
 
   return (
-    <article className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 relative group">
+    <article className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 relative group card-elevate">
       {/* Wishlist Button */}
       <button
         onClick={handleToggleWishlist}
-        className={`absolute top-3 left-3 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white shadow-lg flex items-center justify-center z-10 hover:scale-110 transition-transform duration-200 ${
+        className={`absolute top-3 left-3 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white shadow-lg flex items-center justify-center z-10 hover:scale-110 transition-transform duration-200 btn-bounce ${
           inWishlist ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
         }`}
         aria-label={inWishlist ? 'Quitar de favoritos' : 'Agregar a favoritos'}
@@ -88,7 +88,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
         <img 
           src={product.image || defaultImage} 
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           loading="lazy"
         />
       </div>
