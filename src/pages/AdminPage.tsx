@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router'
 import { 
   Package, ShoppingCart, TrendingUp, Settings, Plus, Edit, Trash2, 
@@ -10,6 +10,15 @@ import {
 } from 'lucide-react'
 import { useApp, Product, Order } from '../context/AppContext'
 import { useAuth } from '../contexts/AuthContext'
+import { 
+  collection, 
+  getDocs, 
+  query, 
+  orderBy, 
+  limit,
+  where
+} from 'firebase/firestore'
+import { db } from '../firebase'
 
 // Tipo para categorías
 interface Category {
@@ -90,6 +99,125 @@ export default function AdminPage() {
   const [productFilter, setProductFilter] = useState('all')
   const [productSearch, setProductSearch] = useState('')
   const [productView, setProductView] = useState<'grid' | 'list'>('grid')
+  
+  // Estado para nuevas secciones del Dashboard
+  const [reviews, setReviews] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+
+  // Cargar reseñas y clientes desde Firestore
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      if (activeSection !== 'dashboard') {
+        setLoadingData(false)
+        return
+      }
+      
+      try {
+        setLoadingData(true)
+        
+        // Cargar reseñas
+        const reviewsQuery = query(
+          collection(db, 'reviews'),
+          orderBy('createdAt', 'desc'),
+          limit(20)
+        )
+        const reviewsSnapshot = await getDocs(reviewsQuery)
+        const reviewsData = reviewsSnapshot.docs.map(doc => {
+          const data = doc.data()
+          // Convertir timestamp de Firestore a fecha legible
+          let dateStr = data.date || ''
+          if (data.createdAt && typeof data.createdAt === 'object' && 'seconds' in data.createdAt) {
+            dateStr = new Date(data.createdAt.seconds * 1000).toLocaleDateString('es-CO')
+          } else if (!dateStr) {
+            dateStr = new Date().toLocaleDateString('es-CO')
+          }
+          return {
+            id: doc.id,
+            ...data,
+            date: dateStr
+          }
+        })
+        setReviews(reviewsData)
+        
+        // Cargar clientes
+        const customersQuery = query(
+          collection(db, 'customers'),
+          orderBy('createdAt', 'desc'),
+          limit(10)
+        )
+        const customersSnapshot = await getDocs(customersQuery)
+        const customersData = customersSnapshot.docs.map(doc => {
+          const data = doc.data()
+          // Convertir timestamp de Firestore a fecha legible
+          let createdAtStr = 'Reciente'
+          if (data.createdAt && typeof data.createdAt === 'object' && 'seconds' in data.createdAt) {
+            createdAtStr = new Date(data.createdAt.seconds * 1000).toLocaleDateString('es-CO')
+          }
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: createdAtStr
+          }
+        })
+        setCustomers(customersData)
+        
+      } catch (error) {
+        console.error('Error loading dashboard data:', error)
+      } finally {
+        setLoadingData(false)
+      }
+    }
+    
+    loadDashboardData()
+  }, [activeSection])
+
+  // Variables calculadas para las nuevas secciones
+  const totalReviews = reviews.length
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return 0
+    const sum = reviews.reduce((acc, r) => acc + (r.rating || 0), 0)
+    return sum / reviews.length
+  }, [reviews])
+  
+  const recentReviews = reviews.slice(0, 5)
+  
+  const recentCustomers = customers.slice(0, 5)
+
+  // Datos para el gráfico de ventas semanal
+  const weeklySalesData = useMemo(() => {
+    const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    const today = new Date()
+    const data = []
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      
+      // Sumar pedidos de ese día
+      const dayOrders = orders.filter(order => {
+        const orderDate = order.date?.split('T')[0] || order.date
+        return orderDate === dateStr
+      })
+      
+      const amount = dayOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+      data.push({
+        label: days[date.getDay()],
+        amount,
+        date: dateStr
+      })
+    }
+    
+    // Calcular porcentaje para la altura de las barras
+    const maxAmount = Math.max(...data.map(d => d.amount), 1)
+    return data.map(d => ({
+      ...d,
+      percentage: Math.max((d.amount / maxAmount) * 100, 5)
+    }))
+  }, [orders])
+
+  const weeklyRevenue = weeklySalesData.reduce((sum, d) => sum + d.amount, 0)
   
   // Función para ir a productos con stock bajo
   const goToLowStockProducts = () => {
@@ -556,33 +684,84 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onClick={openAddModal} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center group">
-                  <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-teal-500 transition-colors">
-                    <Plus className="w-6 h-6 text-teal-600 group-hover:text-white" />
+              {/* NUEVAS SECCIONES: Reseñas, Ventas Semanal, Clientes Recientes */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Reseñas - Rating y Últimas */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-800">Reseñas</h3>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                      <span className="font-bold text-gray-800">{averageRating > 0 ? averageRating.toFixed(1) : '0.0'}</span>
+                      <span className="text-gray-500 text-sm">({totalReviews} reseñas)</span>
+                    </div>
                   </div>
-                  <span className="font-medium text-gray-800">Agregar Producto</span>
-                </button>
-                <button onClick={() => setActiveSection('orders')} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center group">
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-500 transition-colors">
-                    <ShoppingCart className="w-6 h-6 text-blue-600 group-hover:text-white" />
+                  <div className="space-y-3">
+                    {recentReviews.length > 0 ? recentReviews.slice(0, 5).map(review => (
+                      <div key={review.id} className="p-3 bg-gray-50 rounded-xl">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-800">{review.userName}</span>
+                          <div className="flex gap-0.5">
+                            {[1,2,3,4,5].map(i => (
+                              <Star key={i} className={`w-3 h-3 ${i <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-2">{review.comment}</p>
+                        <p className="text-xs text-gray-400 mt-1">{review.date}</p>
+                      </div>
+                    )) : (
+                      <p className="text-gray-500 text-center py-4">No hay reseñas aún</p>
+                    )}
                   </div>
-                  <span className="font-medium text-gray-800">Ver Pedidos</span>
-                </button>
-                <button onClick={() => setShowCategoryModal(true)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center group">
-                  <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-500 transition-colors">
-                    <PackagePlus className="w-6 h-6 text-orange-600 group-hover:text-white" />
+                </div>
+
+                {/* Clientes Recientes */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-800">Clientes Nuevos</h3>
+                    <span className="text-gray-500 text-sm">{recentCustomers.length} este mes</span>
                   </div>
-                  <span className="font-medium text-gray-800">Agregar Categoría</span>
-                </button>
-                <button onClick={() => setActiveSection('settings')} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center group">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-purple-500 transition-colors">
-                    <Settings className="w-6 h-6 text-purple-600 group-hover:text-white" />
+                  <div className="space-y-3">
+                    {recentCustomers.length > 0 ? recentCustomers.map(customer => (
+                      <div key={customer.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                        <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center text-white font-bold">
+                          {customer.name?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800">{customer.name || 'Sin nombre'}</p>
+                          <p className="text-xs text-gray-500">{customer.email}</p>
+                        </div>
+                        <span className="text-xs text-gray-400">{customer.createdAt || 'Reciente'}</span>
+                      </div>
+                    )) : (
+                      <p className="text-gray-500 text-center py-4">No hay clientes nuevos</p>
+                    )}
                   </div>
-                  <span className="font-medium text-gray-800">Configuración</span>
-                </button>
+                </div>
               </div>
+
+              {/* Gráfico de Ventas Semanal */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-gray-800">Ventas esta Semana</h3>
+                  <span className="text-teal-600 font-medium">{formatPrice(weeklyRevenue)} total</span>
+                </div>
+                <div className="flex items-end justify-between gap-2 h-40">
+                  {weeklySalesData.map((day, idx) => (
+                    <div key={idx} className="flex-1 flex flex-col items-center">
+                      <div 
+                        className="w-full bg-gradient-to-t from-teal-500 to-teal-400 rounded-t-lg transition-all hover:from-teal-600 hover:to-teal-500"
+                        style={{ height: `${day.percentage}%` }}
+                        title={formatPrice(day.amount)}
+                      />
+                      <span className="text-xs text-gray-500 mt-2">{day.label}</span>
+                      <span className="text-xs font-medium text-gray-700">{formatPrice(day.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           )}
 
