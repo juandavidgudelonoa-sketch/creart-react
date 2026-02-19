@@ -43,15 +43,39 @@ const defaultCustomer: Customer = {
 const checkIsAdmin = async (email: string): Promise<boolean> => {
   if (!email) return false
   
+  // TEMPORAL: Hardcodear email de admin para pruebas
+  const adminEmail = 'juandavidgudelonoa@gmail.com'
+  if (email.toLowerCase() === adminEmail.toLowerCase()) {
+    console.log('✅ Usuario es ADMIN (hardcoded)')
+    return true
+  }
+  
   try {
     // Verificar documento específico "admin" con ID "admin"
-    const adminDoc = await getDoc(doc(db, 'admins', 'admin'))
+    const adminDoc = await getDoc(doc(db, 'admin', 'admin'))
     if (adminDoc.exists()) {
       const data = adminDoc.data()
+      console.log('📋 Datos del admin en Firestore:', data)
+      console.log('📧 Email del usuario:', email)
+      
+      // Comparar emails ignorando mayúsculas/minúsculas
+      const adminEmailFirestore = (data.email || '').toLowerCase().trim()
+      const userEmail = email.toLowerCase().trim()
+      
+      console.log('📧 Admin email (lower):', adminEmailFirestore)
+      console.log('📧 User email (lower):', userEmail)
+      console.log('📧 Emails son iguales:', adminEmailFirestore === userEmail)
+      console.log('📋 Role:', data.role)
+      
       // Verificar si el email del usuario coincide con el admin registrado
-      if (data.email === email && data.role === 'admin') {
+      if (adminEmail === userEmail && data.role === 'admin') {
+        console.log('✅ Usuario es ADMIN')
         return true
+      } else {
+        console.log('❌ No es admin - email no coincide o role incorrecto')
       }
+    } else {
+      console.log('❌ No existe documento admin en Firestore')
     }
     return false
   } catch (error) {
