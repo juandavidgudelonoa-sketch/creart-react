@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router'
-import { 
+  import { 
   Package, ShoppingCart, TrendingUp, Settings, Plus, Edit, Trash2, 
   Shield, X, CheckCircle, AlertTriangle, Users, DollarSign, FileText,
   Home, LayoutGrid, CreditCard, Bell, Search, Filter, Grid, List,
   ChevronRight, PackagePlus, Eye, MoreVertical, Save, TrendingDown,
   ArrowUpRight, ArrowDownRight, BarChart3, Activity, Clock, CheckSquare,
-  XCircle, Truck, PackageCheck, XSquare, Star
+  XCircle, Truck, PackageCheck, XSquare, Star, Download, Mail, FileSpreadsheet, Upload
 } from 'lucide-react'
 import { useApp, Product, Order } from '../context/AppContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -99,6 +99,14 @@ export default function AdminPage() {
   const [productFilter, setProductFilter] = useState('all')
   const [productSearch, setProductSearch] = useState('')
   const [productView, setProductView] = useState<'grid' | 'list'>('grid')
+  
+  // Estado para notas de pedidos
+  const [orderNotes, setOrderNotes] = useState<Record<string, string>>({})
+  const [editingNote, setEditingNote] = useState<string | null>(null)
+  
+  // Estado para moderación de reseñas
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'pending' | 'approved'>('all')
+  const [reviewSearch, setReviewSearch] = useState('')
   
   // Estado para nuevas secciones del Dashboard
   const [reviews, setReviews] = useState<any[]>([])
@@ -235,8 +243,16 @@ export default function AdminPage() {
     stock: 0,
     badge: '',
     image: '',
+    images: [] as string[], // Múltiples imágenes
     featured: false,
     features: '',
+    // Nuevos campos
+    material: '',
+    dimensions: { width: 0, height: 0, depth: 0 },
+    weight: 0,
+    sku: '',
+    active: true,
+    lowStockAlert: 5,
   })
 
   const isAdmin = isUserAdmin || authUser?.email === 'juandavidgudelonoa@gmail.com'
@@ -325,6 +341,7 @@ export default function AdminPage() {
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'orders', label: 'Pedidos', icon: ShoppingCart, badge: pendingOrders > 0 ? pendingOrders : null },
     { id: 'products', label: 'Productos', icon: Package },
+    { id: 'reviews', label: 'Reseñas', icon: Star, badge: reviews.filter(r => !r.approved).length > 0 ? reviews.filter(r => !r.approved).length : null },
     { id: 'settings', label: 'Configuración', icon: Settings },
   ]
 
@@ -349,8 +366,15 @@ export default function AdminPage() {
       stock: 0,
       badge: '',
       image: '',
+      images: [],
       featured: false,
       features: '',
+      material: '',
+      dimensions: { width: 0, height: 0, depth: 0 },
+      weight: 0,
+      sku: '',
+      active: true,
+      lowStockAlert: 5,
     })
     setShowModal(true)
   }
@@ -367,8 +391,15 @@ export default function AdminPage() {
       stock: product.stock || 0,
       badge: product.badge || '',
       image: product.image || '',
+      images: (product as any).images || [],
       featured: product.featured || false,
       features: product.features?.join('\n') || '',
+      material: (product as any).material || '',
+      dimensions: (product as any).dimensions || { width: 0, height: 0, depth: 0 },
+      weight: (product as any).weight || 0,
+      sku: (product as any).sku || '',
+      active: (product as any).active !== false,
+      lowStockAlert: (product as any).lowStockAlert || 5,
     })
     setShowModal(true)
   }
@@ -386,10 +417,18 @@ export default function AdminPage() {
       stock: formData.stock,
       badge: formData.badge || undefined,
       image: formData.image || defaultImages[formData.category],
+      images: formData.images.length > 0 ? formData.images : [formData.image || defaultImages[formData.category]],
       rating: editingProduct?.rating || 4,
       reviews: editingProduct?.reviews || 0,
       features: formData.features ? formData.features.split('\n').filter(f => f.trim()) : [],
       featured: formData.featured,
+      // Nuevos campos
+      material: formData.material || undefined,
+      dimensions: formData.dimensions.width > 0 || formData.dimensions.height > 0 || formData.dimensions.depth > 0 ? formData.dimensions : undefined,
+      weight: formData.weight > 0 ? formData.weight : undefined,
+      sku: formData.sku || undefined,
+      active: formData.active,
+      lowStockAlert: formData.lowStockAlert,
     }
 
     if (editingProduct) {
@@ -413,6 +452,221 @@ export default function AdminPage() {
   // Guardar settings
   const handleSaveSettings = () => {
     showToast('Configuración guardada', 'success')
+  }
+
+  // Exportar pedidos a CSV
+  const exportOrdersToCSV = () => {
+    const headers = ['ID', 'Fecha', 'Cliente', 'Email', 'Teléfono', 'Cédula/NIT', 'Dirección', 'Notas', 'Método de Pago', 'Estado', 'Total', 'Productos']
+    const rows = orders.map(order => [
+      order.id,
+      order.date,
+      order.customerName || '',
+      order.customerEmail || '',
+      order.customerPhone || '',
+      (order as any).customerCedula || '',
+      order.shippingAddress || '',
+      (order as any).customerNotes || '',
+      (order as any).paymentMethod || '',
+      order.status,
+      order.total.toString(),
+      order.items.map(item => `${item.name} x${item.quantity}`).join('; ')
+    ])
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `pedidos_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    showToast('Pedidos exportados exitosamente', 'success')
+  }
+
+  // Guardar nota de pedido
+  const saveOrderNote = (orderId: string) => {
+    const note = orderNotes[orderId] || ''
+    // Aquí podrías guardar en Firestore si lo necesitas
+    console.log(`Nota guardada para pedido ${orderId}:`, note)
+    setEditingNote(null)
+    showToast('Nota guardada', 'success')
+  }
+
+  // Obtener historial de cambios de estado
+  const getOrderStatusHistory = (order: Order) => {
+    const statusHistory = []
+    // simulamos el historial basado en el estado actual
+    statusHistory.push({
+      status: order.status,
+      date: order.date,
+      note: orderNotes[order.id] || ''
+    })
+    return statusHistory
+  }
+
+  // Obtener nombre del estado en español
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'Pendiente',
+      processing: 'Procesando',
+      shipped: 'Enviado',
+      completed: 'Completado',
+      cancelled: 'Cancelado'
+    }
+    return labels[status] || status
+  }
+
+  // Funciones de moderación de reseñas
+  const approveReview = (reviewId: string) => {
+    setReviews(reviews.map(r => 
+      r.id === reviewId ? { ...r, approved: true } : r
+    ))
+    showToast('Reseña aprobada', 'success')
+  }
+
+  const deleteReview = (reviewId: string) => {
+    if (confirm('¿Estás seguro de eliminar esta reseña?')) {
+      setReviews(reviews.filter(r => r.id !== reviewId))
+      showToast('Reseña eliminada', 'success')
+    }
+  }
+
+  const pendingReviewsCount = reviews.filter(r => !r.approved).length
+
+  // Exportar productos a CSV
+  const exportProductsToCSV = () => {
+    const headers = ['Nombre', 'Categoría', 'Precio', 'Precio Original', 'Stock', 'SKU', 'Material', 'Badge', 'Activo', 'Descripción']
+    const rows = products.map(product => [
+      product.name,
+      product.category,
+      product.price.toString(),
+      (product.originalPrice || '').toString(),
+      (product.stock || 0).toString(),
+      (product as any).sku || '',
+      (product as any).material || '',
+      product.badge || '',
+      (product as any).active !== false ? 'Sí' : 'No',
+      product.description || ''
+    ])
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+    ].join('\n')
+    
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `productos_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    showToast('Productos exportados exitosamente', 'success')
+  }
+
+  // Descargar plantilla CSV
+  const downloadProductTemplate = () => {
+    const headers = ['Nombre', 'Categoría', 'Precio', 'Precio Original', 'Stock', 'SKU', 'Material', 'Badge', 'Activo', 'Descripción']
+    const exampleRow = ['Ejemplo de Producto', 'sillas', '150000', '200000', '10', 'SKU-001', 'Madera Oak', 'Nuevo', 'Sí', 'Descripción del producto']
+    
+    const csvContent = [
+      headers.join(','),
+      exampleRow.map(cell => `"${cell}"`).join(',')
+    ].join('\n')
+    
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'plantilla_productos.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    showToast('Plantilla descargada', 'success')
+  }
+
+  // Importar productos desde CSV
+  const importProductsFromCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string
+        const lines = text.split('\n').filter(line => line.trim())
+        
+        // Saltar header
+        const dataLines = lines.slice(1)
+        
+        let importedCount = 0
+        dataLines.forEach(line => {
+          // Parsear CSV manualmente
+          const values: string[] = []
+          let current = ''
+          let inQuotes = false
+          
+          for (const char of line) {
+            if (char === '"') {
+              inQuotes = !inQuotes
+            } else if (char === ',' && !inQuotes) {
+              values.push(current.trim())
+              current = ''
+            } else {
+              current += char
+            }
+          }
+          values.push(current.trim())
+          
+          // Crear producto
+          if (values[0] && values[2]) { // Nombre y precio requeridos
+            const newProduct = {
+              name: values[0],
+              category: values[1] || 'sillas',
+              price: Number(values[2]) || 0,
+              originalPrice: values[3] ? Number(values[3]) : undefined,
+              stock: Number(values[4]) || 0,
+              sku: values[5] || undefined,
+              material: values[6] || undefined,
+              badge: values[7] || undefined,
+              active: values[8]?.toLowerCase() !== 'no',
+              description: values[9] || '',
+              image: defaultImages[values[1]] || '',
+              rating: 4,
+              reviews: 0,
+              featured: false,
+              features: []
+            }
+            
+            addProduct(newProduct)
+            importedCount++
+          }
+        })
+        
+        showToast(`${importedCount} productos importados`, 'success')
+      } catch (error) {
+        console.error('Error importing:', error)
+        showToast('Error al importar productos', 'error')
+      }
+    }
+    reader.readAsText(file)
+    
+    // Reset input
+    event.target.value = ''
   }
 
   return (
@@ -803,6 +1057,13 @@ export default function AdminPage() {
                     <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-1">
                       <CheckCircle className="w-4 h-4" /> {completedOrders} Completados
                     </span>
+                    <button 
+                      onClick={exportOrdersToCSV}
+                      className="px-3 py-1.5 bg-teal-100 text-teal-700 rounded-lg text-sm font-medium hover:bg-teal-200 flex items-center gap-1"
+                      title="Exportar a Excel"
+                    >
+                      <Download className="w-4 h-4" /> Exportar
+                    </button>
                   </div>
                 </div>
               </div>
@@ -860,7 +1121,7 @@ export default function AdminPage() {
 
                           {/* Order Details */}
                           <div className="p-4 border-t">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                               <div>
                                 <p className="text-gray-500 mb-1">Cliente</p>
                                 <p className="font-medium text-gray-800">{order.customerName || 'No especificado'}</p>
@@ -872,6 +1133,18 @@ export default function AdminPage() {
                               <div>
                                 <p className="text-gray-500 mb-1">Email</p>
                                 <p className="font-medium text-gray-800">{order.customerEmail || 'No especificado'}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500 mb-1">Cédula/NIT</p>
+                                <p className="font-medium text-gray-800">{(order as any).customerCedula || 'No especificado'}</p>
+                              </div>
+                              <div className="lg:col-span-2">
+                                <p className="text-gray-500 mb-1">Dirección de entrega</p>
+                                <p className="font-medium text-gray-800">{order.shippingAddress || (order as any).address || 'No especificada'}</p>
+                              </div>
+                              <div className="lg:col-span-2">
+                                <p className="text-gray-500 mb-1">Notas de entrega</p>
+                                <p className="font-medium text-gray-800">{(order as any).customerNotes || 'Sin notas'}</p>
                               </div>
                             </div>
                           </div>
@@ -928,6 +1201,56 @@ export default function AdminPage() {
                                 </button>
                               )}
                             </div>
+                          </div>
+
+                          {/* Notas del pedido */}
+                          <div className="p-4 border-t bg-blue-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-blue-600" />
+                                <span className="font-medium text-gray-800 text-sm">Notas internas</span>
+                              </div>
+                              {editingNote !== order.id && (
+                                <button 
+                                  onClick={() => setEditingNote(order.id)}
+                                  className="text-blue-600 text-sm hover:underline"
+                                >
+                                  {orderNotes[order.id] ? 'Editar' : 'Agregar nota'}
+                                </button>
+                              )}
+                            </div>
+                            
+                            {editingNote === order.id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={orderNotes[order.id] || ''}
+                                  onChange={(e) => setOrderNotes({ ...orderNotes, [order.id]: e.target.value })}
+                                  placeholder="Agregar una nota interna sobre este pedido..."
+                                  className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  rows={2}
+                                />
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => saveOrderNote(order.id)}
+                                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                                  >
+                                    Guardar
+                                  </button>
+                                  <button 
+                                    onClick={() => setEditingNote(null)}
+                                    className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            ) : orderNotes[order.id] ? (
+                              <p className="text-sm text-gray-600 bg-white p-2 rounded-lg border">
+                                {orderNotes[order.id]}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400">Sin notas</p>
+                            )}
                           </div>
 
                           {/* Expanded Items */}
@@ -1037,6 +1360,37 @@ export default function AdminPage() {
                   <button onClick={() => setShowCategoryModal(true)} className="bg-orange-500 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-orange-600">
                     <Plus className="w-4 h-4" /> Categoría
                   </button>
+                  
+                  {/* Menú de Export/Import */}
+                  <div className="relative group">
+                    <button className="bg-blue-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-blue-700">
+                      <FileSpreadsheet className="w-4 h-4" /> Importar/Exportar
+                    </button>
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border hidden group-hover:block z-10">
+                      <button 
+                        onClick={exportProductsToCSV}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                      >
+                        <Download className="w-4 h-4" /> Exportar productos
+                      </button>
+                      <button 
+                        onClick={downloadProductTemplate}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"
+                      >
+                        <FileText className="w-4 h-4" /> Descargar plantilla
+                      </button>
+                      <label className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm cursor-pointer">
+                        <Upload className="w-4 h-4" /> Importar productos
+                        <input 
+                          type="file" 
+                          accept=".csv" 
+                          onChange={importProductsFromCSV}
+                          className="hidden" 
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  
                   <button onClick={openAddModal} className="bg-teal-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-teal-700">
                     <Plus className="w-4 h-4" /> Producto
                   </button>
@@ -1248,6 +1602,131 @@ export default function AdminPage() {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* REVIEWS - Moderación de reseñas */}
+          {activeSection === 'reviews' && (
+            <div className="space-y-4">
+              {/* Header con filtros */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <div className="flex flex-col md:flex-row gap-4 justify-between">
+                  <div className="flex-1 flex gap-3">
+                    <div className="flex-1 relative">
+                      <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar reseñas..."
+                        value={reviewSearch}
+                        onChange={(e) => setReviewSearch(e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <select
+                      value={reviewFilter}
+                      onChange={(e) => setReviewFilter(e.target.value as any)}
+                      className="border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="all">Todas</option>
+                      <option value="pending">Pendientes ({pendingReviewsCount})</option>
+                      <option value="approved">Aprobadas</option>
+                    </select>
+                  </div>
+                  {/* Stats */}
+                  <div className="flex gap-2">
+                    <span className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium flex items-center gap-1">
+                      <Clock className="w-4 h-4" /> {pendingReviewsCount} Pendientes
+                    </span>
+                    <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-1">
+                      <CheckCircle className="w-4 h-4" /> {reviews.length - pendingReviewsCount} Aprobadas
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reviews List */}
+              <div className="space-y-4">
+                {(() => {
+                  const filteredReviews = reviews.filter(review => {
+                    const matchesFilter = 
+                      reviewFilter === 'all' || 
+                      (reviewFilter === 'pending' && !review.approved) ||
+                      (reviewFilter === 'approved' && review.approved)
+                    const matchesSearch = 
+                      reviewSearch === '' ||
+                      review.userName?.toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                      review.comment?.toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                      review.productName?.toLowerCase().includes(reviewSearch.toLowerCase())
+                    return matchesFilter && matchesSearch
+                  })
+
+                  return filteredReviews.length > 0 ? (
+                    filteredReviews.map(review => (
+                      <div key={review.id} className={`bg-white rounded-2xl p-6 shadow-sm border ${review.approved ? 'border-gray-100' : 'border-yellow-200'}`}>
+                        <div className="flex flex-col md:flex-row gap-4">
+                          {/* Info principal */}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center text-white font-bold">
+                                {review.userName?.charAt(0).toUpperCase() || '?'}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-800">{review.userName || 'Usuario anónimo'}</p>
+                                <p className="text-sm text-gray-500">{review.date}</p>
+                              </div>
+                              {!review.approved && (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                                  Pendiente
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Rating */}
+                            <div className="flex gap-1 mb-2">
+                              {[1,2,3,4,5].map(i => (
+                                <Star key={i} className={`w-5 h-5 ${i <= (review.rating || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
+                              ))}
+                            </div>
+
+                            {/* Producto */}
+                            {review.productName && (
+                              <p className="text-sm text-teal-600 font-medium mb-2">
+                                📦 {review.productName}
+                              </p>
+                            )}
+                            
+                            {/* Comentario */}
+                            <p className="text-gray-700">{review.comment}</p>
+                          </div>
+
+                          {/* Acciones */}
+                          <div className="flex flex-col gap-2">
+                            {!review.approved && (
+                              <button 
+                                onClick={() => approveReview(review.id)}
+                                className="px-4 py-2 bg-green-100 text-green-700 rounded-lg font-medium hover:bg-green-200 flex items-center gap-2"
+                              >
+                                <CheckCircle className="w-4 h-4" /> Aprobar
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => deleteReview(review.id)}
+                              className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" /> Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-white rounded-2xl p-8 text-center">
+                      <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No hay reseñas</p>
+                    </div>
+                  )
+                })()}
+              </div>
             </div>
           )}
 
@@ -1640,17 +2119,107 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Etiqueta</label>
-                  <input 
-                    type="text" 
+                  <select 
                     value={formData.badge} 
                     onChange={(e) => setFormData({ ...formData, badge: e.target.value })} 
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Sin etiqueta</option>
+                    <option value="Nuevo">Nuevo</option>
+                    <option value="Oferta">Oferta</option>
+                    <option value="Popular">Popular</option>
+                    <option value="Destacado">Destacado</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Nuevos campos: SKU, Material, Dimensiones, Peso */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU (Código)</label>
+                  <input 
+                    type="text" 
+                    value={formData.sku} 
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })} 
                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500" 
-                    placeholder="Ej: Nuevo, Oferta, Destacado" 
+                    placeholder="Ej: MESA-001" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
+                  <select 
+                    value={formData.material} 
+                    onChange={(e) => setFormData({ ...formData, material: e.target.value })} 
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Seleccionar material</option>
+                    <option value="Madera Oak">Madera Oak</option>
+                    <option value="Madera Pino">Madera Pino</option>
+                    <option value="Madera Cedro">Madera Cedro</option>
+                    <option value="Madera Nogal">Madera Nogal</option>
+                    <option value="MDF">MDF</option>
+                    <option value="Triplay">Triplay</option>
+                    <option value="Metal">Metal</option>
+                    <option value="Vidrio">Vidrio</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+                  <input 
+                    type="number" 
+                    value={formData.weight} 
+                    onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })} 
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                    placeholder="0" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Alerta stock bajo</label>
+                  <input 
+                    type="number" 
+                    value={formData.lowStockAlert} 
+                    onChange={(e) => setFormData({ ...formData, lowStockAlert: Number(e.target.value) })} 
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                    placeholder="5" 
+                  />
+                </div>
+              </div>
+
+              {/* Dimensiones */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ancho (cm)</label>
+                  <input 
+                    type="number" 
+                    value={formData.dimensions.width} 
+                    onChange={(e) => setFormData({ ...formData, dimensions: { ...formData.dimensions, width: Number(e.target.value) } })} 
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                    placeholder="0" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Alto (cm)</label>
+                  <input 
+                    type="number" 
+                    value={formData.dimensions.height} 
+                    onChange={(e) => setFormData({ ...formData, dimensions: { ...formData.dimensions, height: Number(e.target.value) } })} 
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                    placeholder="0" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Profundo (cm)</label>
+                  <input 
+                    type="number" 
+                    value={formData.dimensions.depth} 
+                    onChange={(e) => setFormData({ ...formData, dimensions: { ...formData.dimensions, depth: Number(e.target.value) } })} 
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500" 
+                    placeholder="0" 
                   />
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-6">
                 <label 
                   htmlFor="featured" 
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
@@ -1677,6 +2246,33 @@ export default function AdminPage() {
                   </svg>
                   <span className={`font-medium ${formData.featured ? 'text-yellow-700' : 'text-gray-600'}`}>
                     Producto destacado
+                  </span>
+                </label>
+
+                <label 
+                  htmlFor="active" 
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                    formData.active 
+                      ? 'bg-green-50 border-green-400' 
+                      : 'bg-transparent border-gray-200 hover:border-green-300'
+                  }`}
+                >
+                  <input 
+                    type="checkbox" 
+                    id="active" 
+                    checked={formData.active} 
+                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })} 
+                    className="sr-only" 
+                  />
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${formData.active ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    {formData.active && (
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`font-medium ${formData.active ? 'text-green-700' : 'text-gray-600'}`}>
+                    Producto activo (visible en tienda)
                   </span>
                 </label>
               </div>
