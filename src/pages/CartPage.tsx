@@ -1,8 +1,10 @@
 import { Link } from 'react-router'
-import { Minus, Plus, Trash2, CheckCircle, ShoppingBag, MapPin, CreditCard, Truck, ShieldCheck, Gift } from 'lucide-react'
+import { Minus, Plus, Trash2, CheckCircle, ShoppingBag, MapPin, CreditCard, Truck, ShieldCheck, Gift, X, XCircle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../contexts/AuthContext'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { getFunctions, httpsCallable } from 'firebase/functions'
+import { app } from '../firebase'
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, cartSubtotal, cartIVA, cartTotal, clearCart, customer, storeSettings, user, loadCustomer, addOrder, setCustomer, saveCustomer } = useApp()
@@ -152,6 +154,355 @@ export default function CartPage() {
     
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
+  }
+
+  // MercadoPago - Estado para Checkout API (sin redirect)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const [showMercadoPagoForm, setShowMercadoPagoForm] = useState(false)
+  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form')
+  const cardFormRef = useRef<any>(null)
+  const [mercadoPagoReady, setMercadoPagoReady] = useState(false)
+
+  // Inicializar MercadoPago cuando se muestra el formulario
+  useEffect(() => {
+    if (showMercadoPagoForm) {
+      // Pequeño delay para asegurar que el DOM esté listo
+      const timer = setTimeout(() => {
+        initializeMercadoPago()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [showMercadoPagoForm])
+
+  // Estado para los datos de la tarjeta
+  const [cardData, setCardData] = useState({
+    cardNumber: '',
+    cardExpirationMonth: '',
+    cardExpirationYear: '',
+    cardCVV: '',
+    cardholderName: '',
+    cardholderEmail: '',
+    docType: 'CC',
+    docNumber: ''
+  })
+
+  // Verificar si el SDK de MercadoPago está cargado
+  const initializeMercadoPago = async () => {
+    // Verificar que el SDK esté disponible
+    if (typeof window !== 'undefined' && (window as any).MercadoPago) {
+      console.log('✅ SDK de MercadoPago cargado correctamente')
+      setMercadoPagoReady(true)
+    } else {
+      console.error('❌ SDK de MercadoPago no está cargado')
+      // Intentar cargar el SDK dinámicamente
+      const script = document.createElement('script')
+      script.src = 'https://sdk.mercadopago.com/js/v2'
+      script.onload = () => {
+        console.log('✅ SDK cargado dinámicamente')
+        setMercadoPagoReady(true)
+      }
+      script.onerror = () => {
+        console.error('❌ Error al cargar el SDK de MercadoPago')
+        alert('Error al cargar el sistema de pagos. Por favor recarga la página.')
+      }
+      document.head.appendChild(script)
+    }
+  }
+
+  // Submit payment - Procesar pago y guardar en Realtime Database
+  const submitPayment = async (
+    token: string, 
+    paymentMethodId: string, 
+    itemsCart: any[], 
+    totalAmount: number, 
+    customerInfo: any,
+    securityCode?: string
+  ) => {
+    console.log('submitPayment llamado con:', { token, paymentMethodId, total: totalAmount, securityCode })
+    console.log('Items recibidos:', itemsCart)
+    
+    setPaymentStep('processing')
+    
+    try {
+      const functions = getFunctions(app)
+      const processPaymentFn = httpsCallable(functions, 'processPayment')
+      
+      console.log('Card items:', itemsCart)
+      console.log('Cart length:', itemsCart.length)
+      console.log('Customer data:', customerInfo)
+      console.log('Card CVV:', cardData.cardCVV)
+      
+      const orderId = `ORD-${Date.now()}`
+      
+      const paymentData = {
+        token,
+        paymentMethodId: paymentMethodId || 'visa',
+        transactionAmount: totalAmount,
+        securityCode: securityCode || '',
+        description: `Compra en CREART - ${itemsCart.length} producto(s)`,
+        payer: {
+          email: customerInfo.email || 'cliente@correo.com',
+          identification: {
+            type: 'CC',
+            number: customerInfo.cedula || '00000000'
+          }
+        },
+        externalReference: orderId,
+        items: itemsCart.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        customer: {
+          name: customerInfo.name,
+          phone: customerInfo.phone,
+          address: customerInfo.address
+        }
+      }
+      
+      console.log('Enviando pago a Cloud Function...', paymentData)
+      
+      // Enviar datos a processPayment
+      const result = await processPaymentFn(paymentData) as { data: { status: string; message?: string; paymentId?: string; statusDetail?: string } }
+      console.log('Resultado del pago:', result.data)
+      
+      const paymentResult = result.data
+      
+      if (paymentResult.status === 'approved') {
+        // También guardar en Firestore para compatibilidad con el panel admin
+        addOrder(itemsCart, totalAmount, customerInfo.address, {
+          name: customerInfo.name,
+          phone: customerInfo.phone,
+          email: customerInfo.email || '',
+          cedula: customerInfo.cedula,
+          notes: customerInfo.notes,
+          paymentMethod: 'MercadoPago',
+        }, authUser?.email)
+        
+        setOrderId(orderId)
+        setPaymentStep('success')
+        clearCart()
+      } else {
+        setPaymentStep('error')
+        alert('Pago rechazado: ' + (paymentResult.message || 'Intenta con otra tarjeta'))
+      }
+      
+    } catch (error: any) {
+      console.error('Error:', error)
+      setPaymentStep('error')
+      alert('Error al procesar el pago: ' + error.message)
+    }
+  }
+
+  // Checkout Pro - Redirigir a MercadoPago
+  const handleMercadoPagoCheckout = async () => {
+    if (!customerData.name.trim() || !customerData.phone.trim() || !customerData.address.trim()) {
+      alert('Por favor completa todos los datos de envío')
+      return
+    }
+
+    try {
+      setIsProcessingPayment(true)
+      
+      const currentCart = [...cart]
+      const currentTotal = totalWithShipping
+      
+      if (currentCart.length === 0) {
+        alert('El carrito está vacío')
+        setIsProcessingPayment(false)
+        return
+      }
+      
+      // Llamar a la Cloud Function para crear preferencia
+      const { getFunctions, httpsCallable } = await import('firebase/functions')
+      const functions = getFunctions()
+      const createPreference = httpsCallable(functions, 'createPaymentPreference')
+      
+      const orderId = `ORD-${Date.now()}`
+      
+      console.log('Enviando datos:', {
+        items: currentCart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        customer: customerData,
+        orderId: orderId
+      })
+      
+      // Enviar datos directamente sin wrapper 'data'
+      const result = await createPreference({
+        items: currentCart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        customer: customerData,
+        orderId: orderId
+      })
+      
+      console.log('Resultado:', result)
+      
+      // La respuesta viene en result.data
+      const responseData = (result as any).data
+      if (responseData?.initPoint) {
+        window.location.href = responseData.initPoint
+      } else if (responseData?.sandbox_init_point) {
+        window.location.href = responseData.sandbox_init_point
+      } else {
+        console.error('No se recibió initPoint:', responseData)
+        alert('Error al crear la preferencia de pago')
+        setIsProcessingPayment(false)
+      }
+    } catch (error: any) {
+      console.error('Error completo:', error)
+      alert('Error al procesar el pago: ' + (error?.message || 'Por favor intenta de nuevo.'))
+      setIsProcessingPayment(false)
+    }
+  }
+
+  // Función para procesar pago directo con tarjeta (Checkout API)
+  const handleCardPayment = async () => {
+    // Validar datos primero
+    if (!customerData.name.trim() || !customerData.phone.trim() || !customerData.address.trim()) {
+      alert('Por favor completa todos los datos de envío')
+      return
+    }
+    
+    // Validar datos de tarjeta
+    if (!cardData.cardNumber.trim() || !cardData.cardExpirationMonth.trim() || 
+        !cardData.cardExpirationYear.trim() || !cardData.cardCVV.trim() ||
+        !cardData.cardholderName.trim() || !cardData.cardholderEmail.trim() ||
+        !cardData.docNumber.trim()) {
+      alert('Por favor completa todos los datos de la tarjeta')
+      return
+    }
+
+    setPaymentStep('processing')
+    
+    try {
+      // Inicializar MercadoPago SDK si no está listo
+      if (!(window as any).MercadoPago) {
+        const script = document.createElement('script')
+        script.src = 'https://sdk.mercadopago.com/js/v2'
+        document.head.appendChild(script)
+        await new Promise((resolve) => {
+          script.onload = resolve
+        })
+      }
+      
+      const mp = new (window as any).MercadoPago('TEST-c17fda90-bf0c-42da-876c-d27444f51979')
+      
+      console.log('=== ENVIANDO DATOS AL BACKEND ===')
+      console.log(' paymentData a enviar:', JSON.stringify({
+        cardData: {
+          cardNumber: cardData.cardNumber.replace(/\s/g, ''),
+          cardholderName: cardData.cardholderName,
+          identificationType: cardData.docType,
+          identificationNumber: cardData.docNumber,
+          securityCode: cardData.cardCVV,
+          expirationMonth: cardData.cardExpirationMonth,
+          expirationYear: cardData.cardExpirationYear
+        },
+        transactionAmount: totalWithShipping
+      }))
+      
+      // Ahora llamar a la función de Firebase - el backend crea el token
+      const functions = getFunctions(app)
+      const processPaymentFn = httpsCallable(functions, 'processPayment')
+      
+      const orderId = `ORD-${Date.now()}`
+      
+      // Asegurar que haya un email válido
+      const payerEmail = cardData.cardholderEmail || customerData.email || 'cliente@creart.com'
+      
+      // Enviar datos de la tarjeta al backend - el backend crea el token
+      const paymentData = {
+        data: {  // Firebase callable envuelve en 'data'
+          // Datos de la tarjeta para crear token en backend
+          cardData: {
+            cardNumber: cardData.cardNumber.replace(/\s/g, ''),
+            cardholderName: cardData.cardholderName,
+            identificationType: cardData.docType,
+            identificationNumber: cardData.docNumber,
+            securityCode: cardData.cardCVV,
+            expirationMonth: cardData.cardExpirationMonth,
+            expirationYear: cardData.cardExpirationYear
+          },
+          transactionAmount: totalWithShipping,
+          description: `Compra en CREART - ${cart.length} producto(s)`,
+          payer: {
+            email: payerEmail,
+            first_name: customerData.name.split(' ')[0] || 'Cliente',
+            last_name: customerData.name.split(' ').slice(1).join(' ') || 'Apellido',
+            identification: {
+              type: cardData.docType,
+              number: cardData.docNumber
+            }
+          },
+          externalReference: orderId,
+          items: cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          customer: {
+            name: customerData.name,
+            phone: customerData.phone,
+            address: customerData.address
+          }
+        }
+      }
+      
+      console.log('Enviando pago a Cloud Function...', paymentData)
+      console.log('Expiration datos:', cardData.cardExpirationMonth, cardData.cardExpirationYear)
+      
+      const result = await processPaymentFn(paymentData)
+      console.log('Resultado del pago:', result)
+      
+      const paymentResult = (result as any).data
+      
+      if (paymentResult.status === 'approved') {
+        // Guardar orden en Firestore
+        addOrder(cart, totalWithShipping, customerData.address, {
+          name: customerData.name,
+          phone: customerData.phone,
+          email: customerData.email || '',
+          cedula: customerData.cedula,
+          notes: customerData.notes,
+          paymentMethod: 'MercadoPago',
+        }, authUser?.email)
+        
+        setOrderId(orderId)
+        setPaymentStep('success')
+        clearCart()
+      } else {
+        setPaymentStep('error')
+        const errorMsg = paymentResult.message || paymentResult.statusDetail || 'Intenta con otra tarjeta'
+        
+        // Si el pago directo falla, sugerir Checkout Pro
+        if (errorMsg.includes('rejected') || errorMsg.includes('other_reason')) {
+          alert('El pago con tarjeta fue rechazado. Te recomendamos usar la opción "MercadoPago" que te redirigirá a una página segura de pagos.')
+        } else {
+          alert('Pago rechazado: ' + errorMsg)
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('Error completo:', error)
+      setPaymentStep('error')
+      // Sugerir Checkout Pro si hay error de conexión o tarjeta
+      const errorMsg = error.message || ''
+      if (errorMsg.includes('network') || errorMsg.includes('fetch') || errorMsg.includes('card')) {
+        alert('Error de conexión con el pago. Te recomendamos usar "MercadoPago" (redirect) para una experiencia más confiable.')
+      } else {
+        alert('Error al procesar el pago: ' + (error.message || 'Por favor intenta con otra tarjeta'))
+      }
+    }
   }
 
   if (cart.length === 0 && !orderConfirmed) {
@@ -427,6 +778,50 @@ export default function CartPage() {
                       </div>
                     </label>
                   )}
+                  
+                  {/* MercadoPago - Checkout Pro (Redirect) */}
+                  <label className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition ${selectedPayment === 'mercadopago' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="mercadopago"
+                      checked={selectedPayment === 'mercadopago'}
+                      onChange={() => setSelectedPayment('mercadopago')}
+                      className="w-5 h-5 text-blue-600"
+                    />
+                    <div className="flex-1">
+                      <span className="font-bold text-lg block">MercadoPago</span>
+                      <p className="text-sm text-gray-500">Redirect a MercadoPago - Recomendado</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <svg viewBox="0 0 100 100" className="w-8 h-8">
+                        <rect width="100" height="100" rx="20" fill="#009EE3"/>
+                        <text x="50" y="65" textAnchor="middle" fill="white" fontSize="40" fontWeight="bold">M</text>
+                      </svg>
+                    </div>
+                  </label>
+
+                  {/* MercadoPago - Checkout API (Direct card) */}
+                  <label className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition ${selectedPayment === 'mercadopago_direct' ? 'border-purple-600 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="mercadopago_direct"
+                      checked={selectedPayment === 'mercadopago_direct'}
+                      onChange={() => {
+                        setSelectedPayment('mercadopago_direct')
+                        setShowMercadoPagoForm(true)
+                      }}
+                      className="w-5 h-5 text-purple-600"
+                    />
+                    <div className="flex-1">
+                      <span className="font-bold text-lg block">Pago con Tarjeta</span>
+                      <p className="text-sm text-gray-500">Ingresa los datos de tu tarjeta directamente</p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                      <CreditCard className="w-6 h-6 text-purple-600" />
+                    </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -500,11 +895,47 @@ export default function CartPage() {
                         else if (selectedPayment === 'whatsapp-web') handleCheckoutWeb()
                         else if (selectedPayment === 'transferencia') handleTransferCheckout()
                         else if (selectedPayment === 'contraentrega') handleCashCheckout()
+                        else if (selectedPayment === 'mercadopago') handleMercadoPagoCheckout()
+                        else if (selectedPayment === 'mercadopago_direct') {
+                          // Validar datos de envío primero
+                          if (!customerData.name.trim() || !customerData.phone.trim() || !customerData.address.trim()) {
+                            alert('Por favor completa todos los datos de envío')
+                            return
+                          }
+                          setShowMercadoPagoForm(true)
+                        }
                       }}
-                      className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-4 rounded-2xl font-bold text-lg hover:from-teal-700 hover:to-teal-800 transition transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-3"
+                      disabled={isProcessingPayment}
+                      className={`w-full text-white py-4 rounded-2xl font-bold text-lg transition transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-3 ${
+                        selectedPayment === 'mercadopago' || selectedPayment === 'mercadopago_direct'
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' 
+                          : 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800'
+                      } ${isProcessingPayment ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      <i className="fab fa-whatsapp text-2xl"></i>
-                      Confirmar Pedido
+                      {isProcessingPayment ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          Procesando...
+                        </>
+                      ) : selectedPayment === 'mercadopago' ? (
+                        <>
+                          <svg viewBox="0 0 100 100" className="w-6 h-6">
+                            <rect width="100" height="100" rx="20" fill="white"/>
+                            <text x="50" y="65" textAnchor="middle" fill="#009EE3" fontSize="40" fontWeight="bold">M</text>
+                          </svg>
+                          Pagar con MercadoPago
+                        </>
+                      ) : selectedPayment === 'mercadopago_direct' ? (
+                        <>
+                          <CreditCard className="w-6 h-6" />
+                          Pagar con Tarjeta
+                        </>
+                      ) : (
+                        <>
+                          <i className="fab fa-whatsapp text-2xl"></i>
+                          Confirmar Pedido
+                        </>
+                      )}
                     </button>
                   ) : (
                     <div className="w-full bg-gray-200 text-gray-400 py-4 rounded-2xl font-bold text-lg text-center cursor-not-allowed">
@@ -581,6 +1012,211 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* MercadoPago Payment Modal - Checkout API (Sin redirect) */}
+      {showMercadoPagoForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-t-3xl flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <svg viewBox="0 0 100 100" className="w-10 h-10">
+                  <rect width="100" height="100" rx="20" fill="white"/>
+                  <text x="50" y="65" textAnchor="middle" fill="#009EE3" fontSize="40" fontWeight="bold">M</text>
+                </svg>
+                <div>
+                  <h3 className="text-white font-bold text-lg">Pago con MercadoPago</h3>
+                  <p className="text-blue-100 text-sm">Total: ${totalWithShipping.toLocaleString('es-CO')}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowMercadoPagoForm(false)}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {paymentStep === 'form' && (
+                <>
+                  {/* Formulario de tarjeta - Campos simples */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de tarjeta
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={19}
+                        value={cardData.cardNumber}
+                        onChange={(e) => setCardData({...cardData, cardNumber: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="1234 5678 9012 3456"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Mes (MM)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          value={cardData.cardExpirationMonth}
+                          onChange={(e) => setCardData({...cardData, cardExpirationMonth: e.target.value})}
+                          className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                          placeholder="12"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Año (AA)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          value={cardData.cardExpirationYear}
+                          onChange={(e) => setCardData({...cardData, cardExpirationYear: e.target.value})}
+                          className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                          placeholder="25"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        CVV
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={4}
+                        value={cardData.cardCVV}
+                        onChange={(e) => setCardData({...cardData, cardCVV: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="123"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre del titular
+                      </label>
+                      <input
+                        type="text"
+                        value={cardData.cardholderName}
+                        onChange={(e) => setCardData({...cardData, cardholderName: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="Nombre como aparece en la tarjeta"
+                        defaultValue={customerData.name}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={cardData.cardholderEmail}
+                        onChange={(e) => setCardData({...cardData, cardholderEmail: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="tu@email.com"
+                        defaultValue={customerData.email}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tipo de documento
+                      </label>
+                      <select
+                        value={cardData.docType}
+                        onChange={(e) => setCardData({...cardData, docType: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                      >
+                        <option value="CC">Cédula de ciudadanía</option>
+                        <option value="CE">Cédula de extranjería</option>
+                        <option value="NIT">NIT</option>
+                        <option value="PP">Pasaporte</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de documento
+                      </label>
+                      <input
+                        type="text"
+                        value={cardData.docNumber}
+                        onChange={(e) => setCardData({...cardData, docNumber: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="Número de documento"
+                        defaultValue={customerData.cedula}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleCardPayment}
+                    disabled={!mercadoPagoReady}
+                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-xl font-bold hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-50"
+                  >
+                    {mercadoPagoReady ? `Pagar $${totalWithShipping.toLocaleString('es-CO')}` : 'Cargando...'}
+                  </button>
+
+                  <p className="text-xs text-gray-500 mt-4 text-center flex items-center justify-center gap-1">
+                    <CreditCard className="w-4 h-4" />
+                    Tus datos están seguros con MercadoPago
+                  </p>
+                </>
+              )}
+
+              {paymentStep === 'processing' && (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">Procesando pago...</h3>
+                  <p className="text-gray-600">Por favor espera mientras verificamos tu pago</p>
+                </div>
+              )}
+
+              {paymentStep === 'success' && (
+                <div className="text-center py-12">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-green-600 mb-2">¡Pago exitoso!</h3>
+                  <p className="text-gray-600 mb-6">Tu pago ha sido procesado correctamente.</p>
+                  <button
+                    onClick={() => {
+                      setShowMercadoPagoForm(false)
+                    }}
+                    className="bg-green-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-600 transition"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              )}
+
+              {paymentStep === 'error' && (
+                <div className="text-center py-12">
+                  <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-red-600 mb-2">Error en el pago</h3>
+                  <p className="text-gray-600 mb-4">El pago fue rechazado. Por favor intenta con otra tarjeta.</p>
+                  <button
+                    onClick={() => {
+                      setPaymentStep('form')
+                    }}
+                    className="bg-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-600 transition"
+                  >
+                    Intentar de nuevo
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

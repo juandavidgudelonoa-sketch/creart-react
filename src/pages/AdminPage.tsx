@@ -65,6 +65,15 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
   const [activeSettingsTab, setActiveSettingsTab] = useState('company')
   const [showModal, setShowModal] = useState(false)
+  
+  // Estado para pedidos desde Firestore (MercadoPago)
+  const [firestoreOrders, setFirestoreOrders] = useState<any[]>([])
+  const [loadingFirestoreOrders, setLoadingFirestoreOrders] = useState(false)
+  
+  // Combinar pedidos de localStorage y Firestore
+  const allOrders = useMemo(() => {
+    return [...orders, ...firestoreOrders.filter(fo => !orders.find(o => o.id === fo.id))]
+  }, [orders, firestoreOrders])
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [showCategoryModal, setShowCategoryModal] = useState(false)
@@ -179,6 +188,44 @@ export default function AdminPage() {
     
     loadDashboardData()
   }, [activeSection])
+  
+  // Cargar pedidos desde Firestore (MercadoPago)
+  useEffect(() => {
+    const loadFirestoreOrders = async () => {
+      setLoadingFirestoreOrders(true)
+      try {
+        const ordersQuery = query(
+          collection(db, 'orders'),
+          orderBy('createdAt', 'desc')
+        )
+        const ordersSnapshot = await getDocs(ordersQuery)
+        const ordersData = ordersSnapshot.docs.map(doc => {
+          const data = doc.data()
+          let dateStr = ''
+          let timeStr = ''
+          if (data.createdAt && typeof data.createdAt === 'object' && 'seconds' in data.createdAt) {
+            const dateObj = new Date(data.createdAt.seconds * 1000)
+            dateStr = dateObj.toLocaleDateString('es-CO')
+            timeStr = dateObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+          }
+          return {
+            id: doc.id,
+            ...data,
+            date: dateStr || new Date().toLocaleDateString('es-CO'),
+            time: timeStr || ''
+          }
+        })
+        setFirestoreOrders(ordersData)
+        console.log('Pedidos cargados desde Firestore:', ordersData.length)
+      } catch (error) {
+        console.error('Error loading Firestore orders:', error)
+      } finally {
+        setLoadingFirestoreOrders(false)
+      }
+    }
+    
+    loadFirestoreOrders()
+  }, [])
 
   // Variables calculadas para las nuevas secciones
   const totalReviews = reviews.length
@@ -204,7 +251,7 @@ export default function AdminPage() {
       const dateStr = date.toISOString().split('T')[0]
       
       // Sumar pedidos de ese día
-      const dayOrders = orders.filter(order => {
+      const dayOrders = allOrders.filter(order => {
         const orderDate = order.date?.split('T')[0] || order.date
         return orderDate === dateStr
       })
@@ -223,7 +270,7 @@ export default function AdminPage() {
       ...d,
       percentage: Math.max((d.amount / maxAmount) * 100, 5)
     }))
-  }, [orders])
+  }, [allOrders])
 
   const weeklyRevenue = weeklySalesData.reduce((sum, d) => sum + d.amount, 0)
   
@@ -292,17 +339,17 @@ export default function AdminPage() {
   }
 
   // Métricas calculadas
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0)
-  const totalOrders = orders.length
-  const pendingOrders = orders.filter(o => o.status === 'pending').length
-  const completedOrders = orders.filter(o => o.status === 'completed').length
+  const totalRevenue = allOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+  const totalOrders = allOrders.length
+  const pendingOrders = allOrders.filter(o => o.status === 'pending' || o.paymentStatus === 'pending').length
+  const completedOrders = allOrders.filter(o => o.status === 'completed' || o.paymentStatus === 'approved').length
   const lowStockProducts = products.filter(p => p.stock && p.stock < 5).length
   const outOfStock = products.filter(p => !p.stock || p.stock === 0).length
   
   // Productos más vendidos
   const productSales: Record<string, number> = {}
-  orders.forEach(order => {
-    order.items.forEach(item => {
+  allOrders.forEach((order: any) => {
+    (order.items || []).forEach((item: any) => {
       productSales[item.id] = (productSales[item.id] || 0) + item.quantity
     })
   })
@@ -322,11 +369,11 @@ export default function AdminPage() {
     .reduce((sum, o) => sum + o.total, 0)
 
   // Clientes únicos
-  const uniqueCustomers = new Set(orders.map(o => o.customerEmail).filter(Boolean)).size
+  const uniqueCustomers = new Set(allOrders.map(o => o.customer?.email || o.customerEmail).filter(Boolean)).size
 
   // Pedidos de hoy
   const today = new Date().toLocaleDateString('es-CO')
-  const todayOrders = orders.filter(o => o.date === today).length
+  const todayOrders = allOrders.filter(o => o.date === today).length
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -457,19 +504,19 @@ export default function AdminPage() {
   // Exportar pedidos a CSV
   const exportOrdersToCSV = () => {
     const headers = ['ID', 'Fecha', 'Cliente', 'Email', 'Teléfono', 'Cédula/NIT', 'Dirección', 'Notas', 'Método de Pago', 'Estado', 'Total', 'Productos']
-    const rows = orders.map(order => [
+    const rows = allOrders.map(order => [
       order.id,
       order.date,
-      order.customerName || '',
-      order.customerEmail || '',
-      order.customerPhone || '',
-      (order as any).customerCedula || '',
-      order.shippingAddress || '',
-      (order as any).customerNotes || '',
-      (order as any).paymentMethod || '',
-      order.status,
-      order.total.toString(),
-      order.items.map(item => `${item.name} x${item.quantity}`).join('; ')
+      order.customer?.name || order.customerName || '',
+      order.customer?.email || order.customerEmail || '',
+      order.customer?.phone || order.customerPhone || '',
+      order.customer?.cedula || (order as any).customerCedula || '',
+      order.customer?.address || order.shippingAddress || '',
+      order.customer?.notes || (order as any).customerNotes || '',
+      (order as any).paymentMethod || 'MercadoPago',
+      order.status || order.paymentStatus || 'pending',
+      (order.total || 0).toString(),
+      (order.items || []).map((item: any) => `${item.name || item.title} x${item.quantity}`).join('; ')
     ])
     
     const csvContent = [
@@ -895,8 +942,8 @@ export default function AdminPage() {
                             order.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-400'
                           }`} />
                           <div>
-                            <p className="font-medium text-gray-800">{order.id}</p>
-                            <p className="text-xs text-gray-500">{order.date}</p>
+                            <p className="font-medium text-gray-800">{(order as any).id || order.id}</p>
+                            <p className="text-xs text-gray-500">{order.date} {((order as any).time) && `a las ${(order as any).time}`}</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -910,7 +957,8 @@ export default function AdminPage() {
                         </div>
                       </div>
                     ))}
-                    {orders.length === 0 && <p className="text-gray-500 text-center py-4">No hay pedidos</p>}
+                    {allOrders.length === 0 && !loadingFirestoreOrders && <p className="text-gray-500 text-center py-4">No hay pedidos</p>}
+                    {loadingFirestoreOrders && <p className="text-gray-500 text-center py-4">Cargando pedidos...</p>}
                   </div>
                 </div>
 
@@ -1070,13 +1118,16 @@ export default function AdminPage() {
 
               {/* Orders List */}
               {(() => {
-                const filteredOrders = orders.filter(order => {
-                  const matchesFilter = orderFilter === 'all' || order.status === orderFilter
+                const filteredOrders = allOrders.filter(order => {
+                  const orderStatus = order.status || order.paymentStatus || 'pending'
+                  const matchesFilter = orderFilter === 'all' || orderStatus === orderFilter
                   const searchLower = orderSearch.toLowerCase()
+                  const customerName = order.customer?.name || order.customerName || ''
+                  const customerEmail = order.customer?.email || order.customerEmail || ''
                   const matchesSearch = orderSearch === '' || 
                     order.id.toLowerCase().includes(searchLower) ||
-                    (order.customerName || '').toLowerCase().includes(searchLower) ||
-                    (order.customerEmail || '').toLowerCase().includes(searchLower)
+                    customerName.toLowerCase().includes(searchLower) ||
+                    customerEmail.toLowerCase().includes(searchLower)
                   return matchesFilter && matchesSearch
                 })
 
@@ -1092,30 +1143,36 @@ export default function AdminPage() {
                           <div className="p-4 bg-gray-50 flex flex-wrap items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
                               <div className={`w-3 h-3 rounded-full ${
-                                order.status === 'completed' ? 'bg-green-500' :
+                                (order.status === 'completed' || order.paymentStatus === 'approved') ? 'bg-green-500' :
                                 order.status === 'cancelled' ? 'bg-red-500' :
                                 order.status === 'shipped' ? 'bg-indigo-500' :
                                 order.status === 'processing' ? 'bg-blue-500' : 'bg-yellow-500'
                               }`} />
                               <div>
                                 <p className="font-bold text-gray-800">{order.id}</p>
-                                <p className="text-sm text-gray-500">{order.date}</p>
+                                <p className="text-sm text-gray-500">{order.date} {((order as any).time) && `a las ${(order as any).time}`}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
-                              <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${
-                                order.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                order.status === 'shipped' ? 'bg-indigo-100 text-indigo-700' :
-                                order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                                'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                {order.status === 'pending' ? 'Pendiente' : 
-                                 order.status === 'processing' ? 'Procesando' :
-                                 order.status === 'shipped' ? 'Enviado' :
-                                 order.status === 'completed' ? 'Completado' : 'Cancelado'}
-                              </span>
-                              <span className="font-bold text-xl text-teal-600">{formatPrice(order.total)}</span>
+                              {(() => {
+                                const displayStatus = order.status || order.paymentStatus || 'pending'
+                                return (
+                                  <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${
+                                    displayStatus === 'paid' || displayStatus === 'approved' || displayStatus === 'completed' ? 'bg-green-100 text-green-700' :
+                                    displayStatus === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                    displayStatus === 'shipped' ? 'bg-indigo-100 text-indigo-700' :
+                                    displayStatus === 'processing' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-yellow-100 text-yellow-700'
+                                  }`}>
+                                    {displayStatus === 'pending' ? 'Pendiente' : 
+                                     displayStatus === 'processing' ? 'Procesando' :
+                                     displayStatus === 'shipped' ? 'Enviado' :
+                                     displayStatus === 'paid' || displayStatus === 'approved' ? 'Pagado' :
+                                     displayStatus === 'completed' ? 'Completado' : 'Cancelado'}
+                                  </span>
+                                )
+                              })()}
+                              <span className="font-bold text-xl text-teal-600">{formatPrice(order.total || 0)}</span>
                             </div>
                           </div>
 
@@ -1124,27 +1181,27 @@ export default function AdminPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                               <div>
                                 <p className="text-gray-500 mb-1">Cliente</p>
-                                <p className="font-medium text-gray-800">{order.customerName || 'No especificado'}</p>
+                                <p className="font-medium text-gray-800">{order.customer?.name || order.customerName || 'No especificado'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-500 mb-1">Teléfono</p>
-                                <p className="font-medium text-gray-800">{order.customerPhone || 'No especificado'}</p>
+                                <p className="font-medium text-gray-800">{order.customer?.phone || order.customerPhone || 'No especificado'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-500 mb-1">Email</p>
-                                <p className="font-medium text-gray-800">{order.customerEmail || 'No especificado'}</p>
+                                <p className="font-medium text-gray-800">{order.customer?.email || order.customerEmail || 'No especificado'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-500 mb-1">Cédula/NIT</p>
-                                <p className="font-medium text-gray-800">{(order as any).customerCedula || 'No especificado'}</p>
+                                <p className="font-medium text-gray-800">{order.customer?.cedula || (order as any).customerCedula || 'No especificado'}</p>
                               </div>
                               <div className="lg:col-span-2">
                                 <p className="text-gray-500 mb-1">Dirección de entrega</p>
-                                <p className="font-medium text-gray-800">{order.shippingAddress || (order as any).address || 'No especificada'}</p>
+                                <p className="font-medium text-gray-800">{order.customer?.address || order.shippingAddress || (order as any).address || 'No especificada'}</p>
                               </div>
                               <div className="lg:col-span-2">
                                 <p className="text-gray-500 mb-1">Notas de entrega</p>
-                                <p className="font-medium text-gray-800">{(order as any).customerNotes || 'Sin notas'}</p>
+                                <p className="font-medium text-gray-800">{order.customer?.notes || (order as any).customerNotes || 'Sin notas'}</p>
                               </div>
                             </div>
                           </div>
@@ -1158,7 +1215,7 @@ export default function AdminPage() {
                               {expandedOrder === order.id ? (
                                 <>Ocultar productos</>
                               ) : (
-                                <>Ver {order.items.length} producto(s)</>
+                                <>Ver {(order.items || []).length} producto(s)</>
                               )}
                             </button>
                             {/* Botones de acción rápida */}
@@ -1266,12 +1323,12 @@ export default function AdminPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {order.items.map((item, idx) => (
+                                  {(order.items || []).map((item: any, idx: number) => (
                                     <tr key={idx} className="border-b">
-                                      <td className="py-2">{item.name}</td>
+                                      <td className="py-2">{item.name || item.title}</td>
                                       <td className="text-center py-2">{item.quantity}</td>
-                                      <td className="text-right py-2">{formatPrice(item.price)}</td>
-                                      <td className="text-right py-2 font-medium">{formatPrice(item.price * item.quantity)}</td>
+                                      <td className="text-right py-2">{formatPrice(item.price || item.unit_price || 0)}</td>
+                                      <td className="text-right py-2 font-medium">{formatPrice((item.price || item.unit_price || 0) * item.quantity)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
