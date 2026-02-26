@@ -1,11 +1,5 @@
-# Nixpacks config - tell Railway to ONLY build Python
+# Nixpacks config - Python only
 providers = ['python']
-
-[phases.setup]
-nixPkgs = ['python311', 'pip']
 
 [python]
 version = '3.11'
-
-[phases.install]
-cmd = 'pip3 install -r api/requirements.txt'
