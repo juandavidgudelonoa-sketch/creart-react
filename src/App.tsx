@@ -17,6 +17,7 @@ import AboutPage from './pages/AboutPage'
 import PoliciesPage from './pages/PoliciesPage'
 import TermsPage from './pages/TermsPage'
 import PrivacyPage from './pages/PrivacyPage'
+import SuccessPage from './pages/SuccessPage'
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="history" element={<HistoryPage />} />
+        <Route path="success" element={<SuccessPage />} />
         <Route 
           path="admin" 
           element={
