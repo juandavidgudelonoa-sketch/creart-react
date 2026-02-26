@@ -1,16 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../contexts/AuthContext'
-import { Package, User, Loader2, MapPin, Phone, Mail, Home, Save, Edit3, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Box } from 'lucide-react'
+import { subscribePedidos } from '../services/pedidosService'
+import { Package, User, Loader2, MapPin, Phone, Mail, Home, Save, ShoppingBag, Clock, CheckCircle, XCircle, Truck, Box } from 'lucide-react'
 import type { Customer } from '../types'
 
 export default function ProfilePage() {
   const { customer, setCustomer: setAppCustomer, saveCustomer: saveAppCustomer, loadCustomer: loadAppCustomer, orders, showToast } = useApp()
   const { user: authUser, customer: authCustomer, isLoggedIn, loading: authLoading, saveCustomer: saveAuthCustomer, setCustomer: setAuthCustomer } = useAuth()
+  
+  // Todos los useState al inicio - orden obligatorio en React
   const [activeTab, setActiveTab] = useState('data')
-
-  // Estado local para editar datos
+  const [firebaseOrders, setFirebaseOrders] = useState<any[]>([])
+  const [loadingFirebaseOrders, setLoadingFirebaseOrders] = useState(true)
   const [editingCustomer, setEditingCustomer] = useState<Customer>({
     name: '',
     phone: '',
@@ -18,10 +21,13 @@ export default function ProfilePage() {
     address: ''
   })
 
+  const user = authUser
+  const currentCustomer = authCustomer || customer
+
   // Cargar datos del cliente al iniciar
   useEffect(() => {
     loadAppCustomer()
-  }, [])
+  }, [loadAppCustomer])
 
   // Sincronizar editingCustomer cuando cambien los datos
   useEffect(() => {
@@ -34,12 +40,108 @@ export default function ProfilePage() {
         address: customerData.address || ''
       })
     }
+  }, [authCustomer, customer])
+
+  // Suscribirse a pedidos de Firebase en tiempo real
+  useEffect(() => {
+    if (!authUser?.email && !authCustomer?.email) {
+      setLoadingFirebaseOrders(false)
+      return
+    }
+
+    const unsubscribe = subscribePedidos((pedidos) => {
+      setFirebaseOrders(pedidos)
+      setLoadingFirebaseOrders(false)
+    })
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [authUser?.email, authCustomer?.email])
+
+  const normalizeOrder = useCallback((order: any) => {
+    return {
+      id: order.orderId || order.id,
+      date: order.date || (order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleDateString('es-CO') : new Date().toLocaleDateString('es-CO')),
+      items: (order.items || []).map((item: any) => ({
+        id: item.id || item.productId || 'unknown',
+        name: item.name || item.title || 'Producto',
+        price: item.price || item.unit_price || 0,
+        quantity: item.quantity || 1,
+        image: item.image || item.picture_url || ''
+      })),
+      total: order.total || order.totalAmount || 0,
+      status: order.status || 'pending',
+      paymentStatus: order.paymentStatus || order.status || 'pending',
+      customerEmail: order.customerEmail || order.email || '',
+      customerName: order.customerName || order.customer?.name || '',
+      shippingAddress: order.shippingAddress || order.address || order.customer?.address || ''
+    }
   }, [])
 
-  const user = authUser
-  const currentCustomer = authCustomer || customer
+  const allUserOrders = useMemo(() => {
+    const userEmail = user?.email?.toLowerCase().trim() || currentCustomer?.email?.toLowerCase().trim() || ''
+    
+    if (!userEmail) return []
+    
+    const firebaseFiltered = firebaseOrders
+      .filter(order => {
+        const orderEmail = (order.customerEmail || order.email || '').toLowerCase().trim()
+        return orderEmail === userEmail
+      })
+      .map(normalizeOrder)
+    
+    if (firebaseFiltered.length > 0) {
+      return firebaseFiltered
+    }
+    
+    return orders
+      .filter(order => {
+        if (!order.customerEmail) return false
+        const orderEmail = order.customerEmail.toLowerCase().trim()
+        return orderEmail === userEmail
+      })
+  }, [firebaseOrders, orders, user?.email, currentCustomer?.email, normalizeOrder])
 
-  // Mostrar loading mientras carga
+  const userOrders = useMemo(() => {
+    return [...allUserOrders].sort((a, b) => {
+      const dateA = new Date(a.date).getTime()
+      const dateB = new Date(b.date).getTime()
+      return dateB - dateA
+    })
+  }, [allUserOrders])
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price || 0)
+  }
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'Fecha no disponible'
+    try {
+      return new Date(dateStr).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })
+    } catch {
+      return dateStr
+    }
+  }
+
+  const getStatusInfo = (status: string) => {
+    const normalizedStatus = 
+      status === 'paid' || status === 'approved' || status === 'aprobado' ? 'completed' :
+      status === 'rejected' || status === 'rechazado' ? 'cancelled' :
+      status === 'processing' ? 'processing' :
+      status === 'shipped' || status === 'enviado' ? 'shipped' :
+      'pending'
+    
+    const statusMap: Record<string, { label: string; bg: string; text: string; icon: any }> = {
+      pending: { label: 'Pendiente', bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
+      processing: { label: 'Procesando', bg: 'bg-blue-100', text: 'text-blue-700', icon: Box },
+      shipped: { label: 'Enviado', bg: 'bg-indigo-100', text: 'text-indigo-700', icon: Truck },
+      completed: { label: 'Completado', bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
+      cancelled: { label: 'Cancelado', bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
+    }
+    return statusMap[normalizedStatus] || statusMap.pending
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -49,43 +151,6 @@ export default function ProfilePage() {
         </div>
       </div>
     )
-  }
-
-  // Filtrar pedidos solo del usuario logueado
-  const userOrders = orders.filter(order => {
-    if (!order.customerEmail) return false
-    const orderEmail = order.customerEmail.toLowerCase().trim()
-    
-    if (user?.email) {
-      const userEmail = user.email.toLowerCase().trim()
-      if (userEmail === orderEmail) return true
-    }
-    
-    if (currentCustomer?.email) {
-      const customerEmail = currentCustomer.email.toLowerCase().trim()
-      if (customerEmail === orderEmail) return true
-    }
-    
-    return false
-  })
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price)
-  }
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })
-  }
-
-  const getStatusInfo = (status: string) => {
-    const statusMap: Record<string, { label: string; bg: string; text: string; icon: any }> = {
-      pending: { label: 'Pendiente', bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
-      processing: { label: 'Procesando', bg: 'bg-blue-100', text: 'text-blue-700', icon: Box },
-      shipped: { label: 'Enviado', bg: 'bg-indigo-100', text: 'text-indigo-700', icon: Truck },
-      completed: { label: 'Completado', bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
-      cancelled: { label: 'Cancelado', bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
-    }
-    return statusMap[status] || statusMap.pending
   }
 
   if (!isLoggedIn) {
@@ -122,7 +187,6 @@ export default function ProfilePage() {
     showToast('Datos guardados correctamente', 'success')
   }
 
-  // Obtener iniciales para avatar
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
@@ -132,11 +196,9 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-gradient-to-r from-teal-600 to-teal-800 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-6">
-            {/* Avatar */}
             <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center text-3xl font-bold">
               {getInitials(userName)}
             </div>
@@ -156,14 +218,11 @@ export default function ProfilePage() {
       </div>
 
       <div className="container mx-auto px-4 -mt-6">
-        {/* Tabs */}
         <div className="flex gap-4 mb-8">
           <button
             onClick={() => setActiveTab('data')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg ${
-              activeTab === 'data' 
-                ? 'bg-white text-teal-600' 
-                : 'bg-white/70 text-gray-500 hover:bg-white hover:text-teal-600'
+              activeTab === 'data' ? 'bg-white text-teal-600' : 'bg-white/70 text-gray-500 hover:bg-white hover:text-teal-600'
             }`}
           >
             <User className="w-5 h-5" />
@@ -172,9 +231,7 @@ export default function ProfilePage() {
           <button
             onClick={() => setActiveTab('orders')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg ${
-              activeTab === 'orders' 
-                ? 'bg-white text-teal-600' 
-                : 'bg-white/70 text-gray-500 hover:bg-white hover:text-teal-600'
+              activeTab === 'orders' ? 'bg-white text-teal-600' : 'bg-white/70 text-gray-500 hover:bg-white hover:text-teal-600'
             }`}
           >
             <ShoppingBag className="w-5 h-5" />
@@ -187,10 +244,8 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Content */}
         {activeTab === 'data' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Información del Usuario */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center">
@@ -235,7 +290,6 @@ export default function ProfilePage() {
               </div>
             </div>
           
-            {/* Datos de Envío - Formulario */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
@@ -301,10 +355,14 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Pedidos */}
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            {userOrders.length === 0 ? (
+            {loadingFirebaseOrders ? (
+              <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+                <Loader2 className="w-12 h-12 animate-spin mx-auto text-teal-600" />
+                <p className="mt-4 text-gray-500">Cargando pedidos...</p>
+              </div>
+            ) : userOrders.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Package className="w-10 h-10 text-gray-400" />
@@ -317,12 +375,12 @@ export default function ProfilePage() {
               </div>
             ) : (
               userOrders.map(order => {
-                const statusInfo = getStatusInfo(order.status)
+                const orderStatus = (order as any).status || (order as any).paymentStatus || 'pending'
+                const statusInfo = getStatusInfo(orderStatus)
                 const StatusIcon = statusInfo.icon
                 
                 return (
                   <div key={order.id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                    {/* Header del pedido */}
                     <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 border-b">
                       <div className="flex items-center justify-between flex-wrap gap-4">
                         <div>
@@ -336,12 +394,11 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     
-                    {/* Productos del pedido */}
                     <div className="p-4">
                       <div className="space-y-3">
-                        {order.items?.map((item: any, index: number) => (
-                          <div key={index} className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                        {order.items?.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                               {item.image ? (
                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-lg" />
                               ) : (
@@ -349,15 +406,14 @@ export default function ProfilePage() {
                               )}
                             </div>
                             <div className="flex-1">
-                              <p className="font-medium">{item.name}</p>
-                              <p className="text-sm text-gray-500">Cantidad: {item.quantity}</p>
+                              <p className="font-medium">{item.name || 'Producto'}</p>
+                              <p className="text-sm text-gray-500">Cantidad: {item.quantity || 1}</p>
                             </div>
-                            <p className="font-bold text-teal-600">{formatPrice(item.price * item.quantity)}</p>
+                            <p className="font-bold text-teal-600">{formatPrice((item.price || 0) * (item.quantity || 1))}</p>
                           </div>
                         ))}
                       </div>
                       
-                      {/* Total */}
                       <div className="mt-4 pt-4 border-t flex justify-between items-center">
                         <div>
                           <p className="text-sm text-gray-500">Fecha del pedido</p>

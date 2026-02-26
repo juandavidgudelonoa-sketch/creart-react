@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { actualizarEstado, subscribePedidos } from '../services/pedidosService'
 
 // Types
 export interface Product {
@@ -492,7 +493,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Pedido realizado con éxito', 'success')
   }
 
-  const updateOrderStatus = (orderId: string, status: Order['status']) => {
+  const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     // Buscar el pedido
     const order = orders.find(o => o.id === orderId)
     if (!order) return
@@ -514,7 +515,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
     }
 
+    // Actualizar en localStorage
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o))
+    
+    // ACTUALIZAR EN FIREBASE - Esto hace que se sincronice en tiempo real con el usuario
+    try {
+      await actualizarEstado(orderId, status)
+      console.log(`Estado del pedido ${orderId} actualizado a ${status} en Firebase`)
+    } catch (error) {
+      console.error('Error actualizando estado en Firebase:', error)
+    }
   }
 
   const getOrderById = (orderId: string) => orders.find(o => o.id === orderId)

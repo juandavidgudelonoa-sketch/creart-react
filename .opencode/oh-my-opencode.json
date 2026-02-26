@@ -10,31 +10,31 @@
   
   "agents": {
     "coder": {
-      "model": "ollama/qwen3-coder:480b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.3,
       "description": "Agente especializado en escribir código limpio y eficiente (Ollama local)",
       "system_prompt": "Eres un desarrollador experto en React, TypeScript y Tailwind CSS. Escribe código limpio, tipado correctamente y siguiendo las mejores prácticas. Proporciona código completo y funcional."
     },
     "reviewer": {
-      "model": "ollama/qwen3-coder:480b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.4,
       "description": "Agente especializado en revisar código y detectar errores (Ollama local)",
       "system_prompt": "Eres un code reviewer experto. Analiza el código en busca de errores, mejoras de rendimiento, problemas de seguridad y violaciones de las mejores prácticas. Sé detallado y específico."
     },
     "researcher": {
-      "model": "ollama/deepseek-v3.1:671b-cloud",
+      "model": "ollama/phi3:latest",
       "temperature": 0.7,
       "description": "Agente especializado en investigar soluciones y debuggear (Ollama local)",
       "system_prompt": "Eres un investigador técnico experto. Busca información sobre problemas complejos, investiga múltiples soluciones alternativas y proporciona análisis detallado de cada opción."
     },
     "designer": {
-      "model": "ollama/gpt-oss:120b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.6,
       "description": "Agente especializado en diseño UI/UX (Ollama local)",
       "system_prompt": "Eres un diseñador UI/UX experto. Mejora la interfaz con estilos modernos, agrega animaciones suaves, gradientes, sombras y asegura una experiencia de usuario excelente. Proporciona código CSS/Tailwind completo."
     },
     "backend": {
-      "model": "ollama/deepseek-v3.1:671b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.3,
       "description": "Agente especializado en backend y Firebase (Ollama local)",
       "system_prompt": "Eres un desarrollador backend experto en Firebase, Node.js y bases de datos. Configura autenticación, bases de datos y APIs. Proporciona código de integración paso a paso."
@@ -43,23 +43,23 @@
   
   "categories": {
     "quick": {
-      "model": "ollama/qwen3-coder:480b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.4
     },
     "code": {
-      "model": "ollama/qwen3-coder:480b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.3
     },
     "review": {
-      "model": "ollama/qwen3-coder:480b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.4
     },
     "research": {
-      "model": "ollama/deepseek-v3.1:671b-cloud",
+      "model": "ollama/phi3:latest",
       "temperature": 0.7
     },
     "design": {
-      "model": "ollama/gpt-oss:120b-cloud",
+      "model": "ollama/qwen2.5:3b",
       "temperature": 0.6
     }
   },
@@ -68,7 +68,7 @@
     "implement": {
       "agent": "coder",
       "description": "Implementar una feature o cambio de código (usando Ollama local)",
-      "prompt_template": "Implementa el siguiente cambio: {task}\n\nContexto del proyecto CREART:\n- Tienda de muebles en React + TypeScript + Tailwind\n- Usa localStorage actualmente\n- Próximamente migrará a Firebase\n- Ubicación: C:\\Users\\equipo\\OneDrive\\Desktop\\Carpinteria creart\\creart-react\n\nEscribe código limpio, bien tipado y siguiendo las mejores prácticas. Proporciona el código completo."
+      "prompt_template": "Implementa el siguiente cambio: {task}\n\nContexto del proyecto CREART:\n- Tienda de muebles en React + TypeScript + Tailwind\n- Usa Firebase para pedidos\n- Ubicación: C:\\Users\\equipo\\OneDrive\\Desktop\\Carpinteria creart\\creart-react\n\nEscribe código limpio, bien tipado y siguiendo las mejores prácticas. Proporciona el código completo."
     },
     "review": {
       "agent": "reviewer",
