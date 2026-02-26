@@ -3,3 +3,6 @@ providers = ['python']
 
 [python]
 version = '3.11'
+
+[phases.install]
+cmd = 'pip install -r api/requirements.txt'
