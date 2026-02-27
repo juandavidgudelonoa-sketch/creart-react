@@ -13,6 +13,9 @@ class Config:
     VERSION = "3.0.0"
     
     # Ollama Cloud
+    OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', 'e185ba1debd84ff0bd94924a6096ab23.eGdoIycVgx1pKrrhkhQBGeFU')
+    OLLAMA_CLOUD_URL = "https://ollama.com/api/generate"
+    DEFAULT_MODEL = "qwen3-coder:480b-cloud"
     OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
     OLLAMA_CLOUD_URL = "https://ollama.com/api/generate"
     DEFAULT_MODEL = "qwen3-coder:480b-cloud"
