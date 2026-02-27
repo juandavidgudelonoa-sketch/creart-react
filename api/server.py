@@ -18,6 +18,10 @@ OLLAMA_CLOUD = "https://api.ollama.com/v1"
 DEFAULT_MODEL = "qwen2.5:3b"
 OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
 OLLAMA_LOCAL = "http://localhost:11434"
+OLLAMA_CLOUD = "https://api.ollama.com/v1"
+DEFAULT_MODEL = "qwen2.5:3b"
+OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
+OLLAMA_LOCAL = "http://localhost:11434"
 OLLAMA_CLOUD = "https://api.ollama.com"
 DEFAULT_MODEL = "qwen2.5:3b"
 
