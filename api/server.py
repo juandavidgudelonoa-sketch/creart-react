@@ -12,7 +12,7 @@ CORS(app)
 # ============= CONFIGURACIÓN DE OLLAMA =============
 OLLAMA_LOCAL = "http://localhost:11434"
 OLLAMA_CLOUD = "https://api.ollama.com/v1"
-DEFAULT_MODEL = "qwen2.5:3b"
+DEFAULT_MODEL = "qwen3-coder:480b-cloud"
 
 def generate_with_ollama(message: str, context: dict = None) -> str:
     """Genera respuesta usando Ollama con fallback: local -> nube"""
@@ -48,6 +48,26 @@ Responde de forma útil, concisa y profesional en español."""
         pass
     
     # 2. Intentar con Ollama Cloud
+    ollama_key = os.environ.get('OLLAMA_API_KEY', '').strip()
+    if ollama_key:
+        try:
+            response = requests.post(
+                f"https://ollama.com/api/generate",
+                headers={
+                    "Authorization": f"Bearer {ollama_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": DEFAULT_MODEL,
+                    "prompt": prompt,
+                    "stream": False
+                },
+                timeout=60
+            )
+            if response.status_code == 200:
+                return response.json().get('response', '').strip()
+        except Exception as e:
+            print(f"Ollama Cloud error: {e}")
     ollama_key = os.environ.get('OLLAMA_API_KEY', '').strip()
     if ollama_key:
         try:
@@ -103,6 +123,14 @@ def generate_fallback_response(message: str, context: dict = None) -> str:
 # ============= ENDPOINTS =============
 
 @app.route('/api/health', methods=['GET'])
+def health():
+    key_status = "configured" if os.environ.get('OLLAMA_API_KEY', '').strip() else "NOT configured"
+    return jsonify({
+        "status": "ok",
+        "message": "CREART API funcionando con IA",
+        "version": "2.1.0",
+        "ollama_key": key_status
+    })
 def health():
     return jsonify({
         "status": "ok",
