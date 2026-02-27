@@ -14,6 +14,10 @@ CORS(app)
 
 # ============= CONFIGURACIÓN DE OLLAMA =============
 OLLAMA_LOCAL = "http://localhost:11434"
+OLLAMA_CLOUD = "https://api.ollama.com/v1"
+DEFAULT_MODEL = "qwen2.5:3b"
+OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
+OLLAMA_LOCAL = "http://localhost:11434"
 OLLAMA_CLOUD = "https://api.ollama.com"
 DEFAULT_MODEL = "qwen2.5:3b"
 
@@ -68,6 +72,29 @@ Si no tienes información específica,di que no la tienes."""
         print(f"Ollama local no disponible: {e}")
     
     # Fallback: intentar con API de Ollama en la nube (si está configurada)
+    if OLLAMA_API_KEY:
+        try:
+            response = requests.post(
+                f"{OLLAMA_CLOUD}/chat",
+                headers={
+                    "Authorization": f"Bearer {OLLAMA_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": DEFAULT_MODEL,
+                    "messages": [
+                        {"role": "user", "content": prompt}
+                    ],
+                    "stream": False
+                },
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+        except Exception as e:
+            print(f"Ollama cloud no disponible: {e}")
     ollama_api_key = os.environ.get('OLLAMA_API_KEY')
     if ollama_api_key:
         try:
