@@ -6,22 +6,34 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuración general
+
 class Config:
     """Configuración base"""
     APP_NAME = "CREART API"
-    VERSION = "3.0.0"
+    VERSION = "3.1.0"
     
-    # Ollama Cloud
-    OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', 'e185ba1debd84ff0bd94924a6096ab23.eGdoIycVgx1pKrrhkhQBGeFU')
-    OLLAMA_CLOUD_URL = "https://ollama.com/api/generate"
-    DEFAULT_MODEL = "qwen3-coder:480b-cloud"
+    # Ollama Cloud (IA)
     OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
     OLLAMA_CLOUD_URL = "https://ollama.com/api/generate"
-    DEFAULT_MODEL = "qwen3-coder:480b-cloud"
+    DEFAULT_MODEL = "qwen3:8b"
     
     # Gemini (backup)
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+    
+    # Firebase (obtener de variables de entorno)
+    FIREBASE_CONFIG = {
+        "type": os.environ.get('FIREBASE_TYPE', 'service_account'),
+        "project_id": os.environ.get('FIREBASE_PROJECT_ID', 'creart-313b9'),
+        "private_key_id": os.environ.get('FIREBASE_PRIVATE_KEY_ID', ''),
+        "private_key": os.environ.get('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
+        "client_email": os.environ.get('FIREBASE_CLIENT_EMAIL', ''),
+        "client_id": os.environ.get('FIREBASE_CLIENT_ID', ''),
+        "auth_uri": os.environ.get('FIREBASE_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
+        "token_uri": os.environ.get('FIREBASE_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
+    }
+    
+    # Firestore
+    FIRESTORE_PROJECT = os.environ.get('FIRESTORE_PROJECT', 'creart-313b9')
     
     # Flask
     DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
@@ -45,6 +57,7 @@ config = {
     'production': ProductionConfig,
     'default': ProductionConfig
 }
+
 
 def get_config():
     """Obtener configuración según el entorno"""

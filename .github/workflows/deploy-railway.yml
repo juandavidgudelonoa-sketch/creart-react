@@ -1,0 +1,43 @@
+name: Deploy Backend to Railway
+
+on:
+  push:
+    branches:
+      - main
+      - backend-improvements
+    paths:
+      - 'api/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Login to Railway
+        run: railway login --token ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Link Railway Project  
+        run: railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+
+      - name: Set Environment Variables
+        if: secrets.OLLAMA_API_KEY != ''
+        run: |
+          railway variables set OLLAMA_API_KEY=${{ secrets.OLLAMA_API_KEY }}
+
+      - name: Deploy to Railway
+        run: railway up --detach
+
+      - name: Get Railway URL
+        id: railway
+        run: echo "url=$(railway domain)" >> $GITHUB_OUTPUT
+
+      - name: Comment deployment URL
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🚀 Backend deployed to: $(railway domain)"

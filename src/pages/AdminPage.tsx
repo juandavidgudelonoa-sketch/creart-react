@@ -6,7 +6,8 @@ import { Link } from 'react-router'
   Home, LayoutGrid, CreditCard, Bell, Search, Filter, Grid, List,
   ChevronRight, PackagePlus, Eye, MoreVertical, Save, TrendingDown,
   ArrowUpRight, ArrowDownRight, BarChart3, Activity, Clock, CheckSquare,
-  XCircle, Truck, PackageCheck, XSquare, Star, Download, Mail, FileSpreadsheet, Upload
+  XCircle, Truck, PackageCheck, XSquare, Star, Download, Mail, FileSpreadsheet, Upload,
+  Bot
 } from 'lucide-react'
 import { useApp, Product, Order } from '../context/AppContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -19,6 +20,7 @@ import {
   where
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import AIAssistant from '../components/AIAssistant'
 
 // Tipo para categorías
 interface Category {
@@ -390,6 +392,7 @@ export default function AdminPage() {
     { id: 'products', label: 'Productos', icon: Package },
     { id: 'reviews', label: 'Reseñas', icon: Star, badge: reviews.filter(r => !r.approved).length > 0 ? reviews.filter(r => !r.approved).length : null },
     { id: 'settings', label: 'Configuración', icon: Settings },
+    { id: 'aiassistant', label: 'Asistente IA', icon: Bot },
   ]
 
   // Settings tabs
@@ -1172,6 +1175,36 @@ export default function AdminPage() {
                                   </span>
                                 )
                               })()}
+                              {/* Quick status buttons */}
+                              <div className="flex items-center gap-1">
+                                {order.status !== 'processing' && order.status !== 'completed' && order.status !== 'cancelled' && (
+                                  <button 
+                                    onClick={() => updateOrderStatus(order.id, 'processing')}
+                                    className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200"
+                                    title="Procesar"
+                                  >
+                                    P
+                                  </button>
+                                )}
+                                {order.status !== 'shipped' && order.status !== 'completed' && order.status !== 'cancelled' && (
+                                  <button 
+                                    onClick={() => updateOrderStatus(order.id, 'shipped')}
+                                    className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium hover:bg-indigo-200"
+                                    title="Enviar"
+                                  >
+                                    E
+                                  </button>
+                                )}
+                                {order.status !== 'completed' && order.status !== 'cancelled' && (
+                                  <button 
+                                    onClick={() => updateOrderStatus(order.id, 'completed')}
+                                    className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200"
+                                    title="Completar"
+                                  >
+                                    C
+                                  </button>
+                                )}
+                              </div>
                               <span className="font-bold text-xl text-teal-600">{formatPrice(order.total || 0)}</span>
                             </div>
                           </div>
@@ -2112,6 +2145,10 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+n              {/* AI Assistant Section */}
+              {activeSection === 'aiassistant' && (
+                <AIAssistant />
+              )}
       </main>
 
       {/* Modal Agregar/Editar Producto */}
