@@ -1,13 +1,14 @@
 """
-Servicio de Firebase para la API
+Servicio de Firebase para la API usando Firebase Admin SDK
 """
 import os
 from datetime import datetime
 from typing import List, Dict, Optional
+import json
 
 
 class FirebaseService:
-    """Servicio para conectar con Firebase/Firestore (simulado sin conexión real)"""
+    """Servicio para conectar con Firebase/Firestore usando firebase-admin"""
     
     def __init__(self):
         self.db = None
@@ -16,21 +17,29 @@ class FirebaseService:
     def _initialize(self):
         """Inicializar conexión a Firestore"""
         try:
-            from google.cloud import firestore
+            import firebase_admin
+            from firebase_admin import credentials, firestore
             
-            # Usar credentials de GOOGLE_APPLICATION_CREDENTIALS o Config
-            if os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-                self.db = firestore.Client()
-            else:
-                from config import Config
-                # Usar project desde config
-                self.db = firestore.Client(project=Config.FIRESTORE_PROJECT)
-            print("Firebase connected successfully")
+            # Verificar si ya está inicializado
+            if not firebase_admin._apps:
+                # Intentar obtener credenciales de variable de entorno
+                credentials_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+                
+                if credentials_json:
+                    # Usar el JSON de las variables de entorno
+                    cred_dict = json.loads(credentials_json)
+                    cred = credentials.Certificate(cred_dict)
+                else:
+                    # Usar credenciales por defecto (ADC)
+                    cred = credentials.ApplicationDefault()
+                
+                firebase_admin.initialize_app(cred)
+            
+            self.db = firestore.client()
+            print("Firebase Admin SDK connected successfully")
         except Exception as e:
-            print("WARNING: Firebase connection failed:", str(e))
-            # No asignamos self.db = None aquí para evitar el error
-            # Dejaremos que el servicio funcione en modo "offline"
-            pass
+            print(f"WARNING: Firebase connection failed: {str(e)[:100]}")
+            self.db = None
     
     def is_connected(self) -> bool:
         """Verificar si hay conexión"""
@@ -39,14 +48,13 @@ class FirebaseService:
     # ============ PEDIDOS ============
     
     def get_orders(self, limit: int = 100) -> List[Dict]:
-        """Obtener todos los pedidos (demo)"""
-        # Datos de ejemplo si no hay conexión
+        """Obtener todos los pedidos"""
         if not self.is_connected():
             return self._get_demo_orders()
         
         try:
-            orders_ref = self.db.collection('orders')
-            docs = orders_ref.limit(limit).stream()
+            orders_ref = self.db.collection('orders').limit(limit)
+            docs = orders_ref.get()
             
             orders = []
             for doc in docs:
@@ -104,10 +112,8 @@ class FirebaseService:
             return True
         
         try:
-            from google.cloud import firestore
             self.db.collection('orders').document(order_id).update({
-                'status': status,
-                'updatedAt': firestore.SERVER_TIMESTAMP
+                'status': status
             })
             return True
         except Exception as e:
@@ -145,19 +151,19 @@ class FirebaseService:
             "pendingOrders": pending,
             "completedOrders": completed,
             "todayOrders": today_orders,
-            "monthlyRevenue": total_revenue  # Simplificado
+            "monthlyRevenue": total_revenue
         }
     
     # ============ PRODUCTOS ============
     
     def get_products(self, limit: int = 100) -> List[Dict]:
-        """Obtener todos los productos (demo)"""
+        """Obtener todos los productos"""
         if not self.is_connected():
             return self._get_demo_products()
         
         try:
-            products_ref = self.db.collection('products')
-            docs = products_ref.limit(limit).stream()
+            products_ref = self.db.collection('products').limit(limit)
+            docs = products_ref.get()
             
             products = []
             for doc in docs:
@@ -208,10 +214,8 @@ class FirebaseService:
             return True
         
         try:
-            from google.cloud import firestore
             self.db.collection('products').document(product_id).update({
-                'stock': stock,
-                'updatedAt': firestore.SERVER_TIMESTAMP
+                'stock': stock
             })
             return True
         except Exception as e:

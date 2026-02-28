@@ -5,9 +5,8 @@ gunicorn==21.2.0
 requests==2.31.0
 python-dotenv==1.0.0
 
-# Firebase
-google-cloud-firestore==6.1.0
-google-auth==2.25.0
+# Firebase Admin SDK
+firebase-admin==6.4.0
 
 # IA (opcional)
 google-generativeai==0.8.3

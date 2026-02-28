@@ -205,10 +205,15 @@ export default function AdminPage() {
           const data = doc.data()
           let dateStr = ''
           let timeStr = ''
-          if (data.createdAt && typeof data.createdAt === 'object' && 'seconds' in data.createdAt) {
-            const dateObj = new Date(data.createdAt.seconds * 1000)
-            dateStr = dateObj.toLocaleDateString('es-CO')
-            timeStr = dateObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+          const ts = data.createdAt
+          if (ts) {
+            try {
+              let dateObj = ts?.seconds ? new Date(ts.seconds * 1000) : new Date(ts)
+              if (!isNaN(dateObj.getTime())) {
+                dateStr = dateObj.toLocaleDateString('es-CO')
+                timeStr = dateObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+              }
+            } catch {}
           }
           return {
             id: doc.id,
