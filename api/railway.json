@@ -1,0 +1,24 @@
+{
+  "$schema": "https://railway.app/railway.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -r requirements.txt",
+    "startCommand": "gunicorn -w 4 -b 0.0.0.0:$PORT app:app"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  },
+  "environmentVariables": {
+    "required": [
+      "GOOGLE_APPLICATION_CREDENTIALS",
+      "FLASK_ENV",
+      "SECRET_KEY"
+    ],
+    "optional": [
+      "OLLAMA_API_KEY",
+      "GEMINI_API_KEY"
+    ]
+  }
+}
