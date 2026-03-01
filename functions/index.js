@@ -483,3 +483,360 @@ exports.getPaymentStatus = functions.https.onCall(async (data, context) => {
   
   return orderDoc.data();
 });
+
+// ============================================================
+// 7. PEDIDOS - Gestión de pedidos desde Firebase
+// ============================================================
+
+// Obtener todos los pedidos
+exports.getOrders = functions.https.onCall(async (data, context) => {
+  try {
+    const limit = data?.limit || 100;
+    const ordersSnapshot = await db.collection('orders').orderBy('createdAt', 'desc').limit(limit).get();
+    
+    const orders = [];
+    ordersSnapshot.forEach(doc => {
+      const data = doc.data();
+      // Convertir timestamps a string
+      if (data.createdAt) {
+        data.createdAt = data.createdAt.toDate().toISOString();
+      }
+      if (data.updatedAt) {
+        data.updatedAt = data.updatedAt.toDate().toISOString();
+      }
+      if (data.paidAt) {
+        data.paidAt = data.paidAt.toDate().toISOString();
+      }
+      orders.push({ id: doc.id, ...data });
+    });
+    
+    return { orders };
+  } catch (error) {
+    console.error('Error getting orders:', error);
+    return { orders: [], error: error.message };
+  }
+});
+
+// Obtener un pedido específico
+exports.getOrder = functions.https.onCall(async (data, context) => {
+  const { orderId } = data;
+  
+  if (!orderId) {
+    throw new functions.https.HttpsError('invalid-argument', 'orderId es requerido');
+  }
+  
+  try {
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+    
+    if (!orderDoc.exists) {
+      return { error: 'Pedido no encontrado' };
+    }
+    
+    const data = orderDoc.data();
+    if (data.createdAt) data.createdAt = data.createdAt.toDate().toISOString();
+    if (data.updatedAt) data.updatedAt = data.updatedAt.toDate().toISOString();
+    
+    return { order: { id: orderDoc.id, ...data } };
+  } catch (error) {
+    console.error('Error getting order:', error);
+    return { error: error.message };
+  }
+});
+
+// Actualizar estado del pedido (incluye status de payment)
+exports.updateOrderStatus = functions.https.onCall(async (data, context) => {
+  const { orderId, status, paymentStatus } = data;
+  
+  if (!orderId) {
+    throw new functions.https.HttpsError('invalid-argument', 'orderId es requerido');
+  }
+  
+  try {
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (status) {
+      updateData.status = status;
+    }
+    
+    if (paymentStatus) {
+      updateData.paymentStatus = paymentStatus;
+    }
+    
+    await db.collection('orders').doc(orderId).update(updateData);
+    
+    return { success: true, message: `Pedido ${orderId} actualizado a ${status || paymentStatus}` };
+  } catch (error) {
+    console.error('Error updating order:', error);
+    return { error: error.message };
+  }
+});
+
+// Resumen de pedidos para el dashboard
+exports.getOrdersSummary = functions.https.onCall(async (data, context) => {
+  try {
+    const ordersSnapshot = await db.collection('orders').get();
+    const orders = [];
+    
+    ordersSnapshot.forEach(doc => {
+      orders.push({ id: doc.id, ...doc.data() });
+    });
+    
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(o => o.status === 'pending' || o.paymentStatus === 'pending').length;
+    const completedOrders = orders.filter(o => o.status === 'paid' || o.status === 'completed').length;
+    const totalRevenue = orders
+      .filter(o => o.status === 'paid' || o.status === 'completed')
+      .reduce((sum, o) => sum + (o.total || 0), 0);
+    
+    // Calcular pedidos de hoy
+    const today = new Date().toISOString().split('T')[0];
+    const todayOrders = orders.filter(o => {
+      if (!o.createdAt) return false;
+      return o.createdAt.startsWith(today);
+    }).length;
+    
+    return {
+      totalOrders,
+      pendingOrders,
+      completedOrders,
+      totalRevenue,
+      todayOrders
+    };
+  } catch (error) {
+    console.error('Error getting summary:', error);
+    return { error: error.message };
+  }
+});
+
+// ============================================================
+// 8. PRODUCTOS - Gestión de productos
+// ============================================================
+
+// Obtener productos
+exports.getProducts = functions.https.onCall(async (data, context) => {
+  try {
+    const limit = data?.limit || 100;
+    const productsSnapshot = await db.collection('products').limit(limit).get();
+    
+    const products = [];
+    productsSnapshot.forEach(doc => {
+      products.push({ id: doc.id, ...doc.data() });
+    });
+    
+    return { products };
+  } catch (error) {
+    console.error('Error getting products:', error);
+    return { products: [], error: error.message };
+  }
+});
+
+// Obtener productos con stock bajo
+exports.getLowStockProducts = functions.https.onCall(async (data, context) => {
+  const threshold = data?.threshold || 5;
+  
+  try {
+    const productsSnapshot = await db.collection('products').get();
+    
+    const lowStock = [];
+    productsSnapshot.forEach(doc => {
+      const product = doc.data();
+      if ((product.stock || 0) <= threshold) {
+        lowStock.push({ id: doc.id, ...product });
+      }
+    });
+    
+    return { products: lowStock };
+  } catch (error) {
+    console.error('Error getting low stock products:', error);
+    return { products: [], error: error.message };
+  }
+});
+
+// ============================================================
+// 9. AI ASSISTANT - Ollama Cloud Integration
+// ============================================================
+
+// Ollama Cloud API - usa el servicio de Ollama Cloud
+exports.aiChat = functions.https.onCall(async (data, context) => {
+  const { message, context: chatContext } = data;
+  
+  if (!message) {
+    throw new functions.https.HttpsError('invalid-argument', 'message es requerido');
+  }
+  
+  try {
+    // Ollama Cloud API
+    const response = await fetch('https://api.ollama.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'qwen2.5:3b',
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un asistente de ventas experto para una mueblería llamada CREART. Conoces todos los productos de madera, estilos, precios y puedes dar recomendaciones personalizadas. Responde siempre en español de manera amigable y profesional.'
+          },
+          ...(chatContext || []),
+          { role: 'user', content: message }
+        ],
+        stream: false
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error en la API de Ollama');
+    }
+    
+    const result = await response.json();
+    return {
+      response: result.choices[0].message.content
+    };
+  } catch (error) {
+    console.error('Error en AI chat:', error);
+    return {
+      response: 'Disculpa, tuve un problema al procesar tu mensaje. ¿Puedes intentar de nuevo?',
+      error: error.message
+    };
+  }
+});
+
+// Análisis de ventas con AI
+exports.aiAnalytics = functions.https.onCall(async (data, context) => {
+  try {
+    // Obtener datos de pedidos
+    const ordersSnapshot = await db.collection('orders').get();
+    const orders = [];
+    ordersSnapshot.forEach(doc => orders.push(doc.data()));
+    
+    // Calcular métricas
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalOrders = orders.length;
+    const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'completed');
+    
+    // Crear prompt para análisis
+    const prompt = `Analiza los siguientes datos de ventas de nuestra mueblería CREART:
+- Total de pedidos: ${totalOrders}
+- Pedidos pagados: ${paidOrders.length}
+- Ingresos totales: $${totalRevenue.toLocaleString('es-CO')}
+- Estados de pedidos: ${JSON.stringify(orders.map(o => o.status))}
+
+Proporciona un análisis breve y accionable en español.`;
+    
+    const response = await fetch('https://api.ollama.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen2.5:3b',
+        messages: [
+          { role: 'system', content: 'Eres un analista de negocios experto. Analizas datos de ventas y das recomendaciones claras.' },
+          { role: 'user', content: prompt }
+        ],
+        stream: false
+      })
+    });
+    
+    const result = await response.json();
+    
+    return {
+      analysis: result.choices[0].message.content,
+      metrics: {
+        totalRevenue,
+        totalOrders,
+        completedOrders: paidOrders.length
+      }
+    };
+  } catch (error) {
+    console.error('Error en AI analytics:', error);
+    return { error: error.message };
+  }
+});
+
+// Predicción de stock con AI
+exports.aiStockPrediction = functions.https.onCall(async (data, context) => {
+  try {
+    const productsSnapshot = await db.collection('products').get();
+    const products = [];
+    productsSnapshot.forEach(doc => products.push(doc.data()));
+    
+    const lowStock = products.filter(p => (p.stock || 0) < 5);
+    
+    const prompt = `Eres un experto en gestión de inventario para una mueblería. 
+Productos con stock bajo: ${JSON.stringify(lowStock.map(p => ({ name: p.name, stock: p.stock, price: p.price })))}
+
+Proporciona recomendaciones de reorder en español.`;
+    
+    const response = await fetch('https://api.ollama.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen2.5:3b',
+        messages: [
+          { role: 'system', content: 'Eres un experto en gestión de inventario.' },
+          { role: 'user', content: prompt }
+        ],
+        stream: false
+      })
+    });
+    
+    const result = await response.json();
+    
+    return {
+      prediction: result.choices[0].message.content,
+      lowStockProducts: lowStock
+    };
+  } catch (error) {
+    console.error('Error en AI stock prediction:', error);
+    return { error: error.message };
+  }
+});
+
+// Recomendaciones de productos con AI
+exports.aiRecommendations = functions.https.onCall(async (data, context) => {
+  const { preferences } = data || {};
+  
+  try {
+    const productsSnapshot = await db.collection('products').get();
+    const products = [];
+    productsSnapshot.forEach(doc => products.push(doc.data()));
+    
+    const prompt = `Eres un experto en muebles de madera. Basedo en estos productos disponibles:
+${JSON.stringify(products.map(p => ({ name: p.name, category: p.category, price: p.price })))}
+
+${preferences ? `El cliente busca: ${preferences}` : 'Proporciona las mejores recomendaciones generales de muebles.'}
+
+Responde con una lista de máximo 5 productos recomendados en español.`;
+    
+    const response = await fetch('https://api.ollama.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen2.5:3b',
+        messages: [
+          { role: 'system', content: 'Eres un vendedor experto de muebles.' },
+          { role: 'user', content: prompt }
+        ],
+        stream: false
+      })
+    });
+    
+    const result = await response.json();
+    
+    return {
+      recommendations: result.choices[0].message.content,
+      products: products.slice(0, 10)
+    };
+  } catch (error) {
+    console.error('Error en AI recommendations:', error);
+    return { error: error.message };
+  }
+});
+
+// Health check
+exports.health = functions.https.onRequest(async (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
