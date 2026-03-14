@@ -20,71 +20,71 @@ export default function CatalogPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-8">
+    <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
+      <h1 className="text-2xl md:text-3xl font-bold text-center mb-4 md:mb-8">
         {category ? categoryTitles[category] || category : 'Catálogo Completo'}
       </h1>
 
-      {/* Category Filters */}
-      <div className="flex flex-wrap justify-center gap-4 mb-8">
+      {/* Category Filters - Horizontal scroll on mobile */}
+      <div className="flex overflow-x-auto gap-2 md:gap-4 mb-4 md:mb-8 pb-2 md:pb-0 justify-start md:justify-center scrollbar-hide">
         <Link 
           to="/catalog" 
-          className={`px-4 py-2 rounded-full font-medium transition ${!category ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${!category ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Todos
         </Link>
         <Link 
           to="/catalog/sillas" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'sillas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'sillas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Sillas
         </Link>
         <Link 
           to="/catalog/mesas" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'mesas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'mesas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Mesas
         </Link>
         <Link 
           to="/catalog/taburetes" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'taburetes' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'taburetes' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Taburetes
         </Link>
         <Link 
           to="/catalog/aparadores" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'aparadores' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'aparadores' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Aparadores
         </Link>
         <Link 
           to="/catalog/armarios" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'armarios' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'armarios' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Armarios
         </Link>
         <Link 
           to="/catalog/zapateras" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'zapateras' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'zapateras' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Zapateras
         </Link>
         <Link 
           to="/catalog/repisas" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'repisas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'repisas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Repisas
         </Link>
         <Link 
           to="/catalog/escritorios" 
-          className={`px-4 py-2 rounded-full font-medium transition ${category === 'escritorios' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'escritorios' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
         >
           Escritorios
         </Link>
       </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
         {displayProducts.map(product => (
           <ProductCard key={product.id} product={product} />
         ))}
