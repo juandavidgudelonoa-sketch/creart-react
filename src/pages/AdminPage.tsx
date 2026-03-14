@@ -226,25 +226,32 @@ export default function AdminPage() {
     setShowDeleteConfirm(null)
   }
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Panel de Administración</h1>
+    <div className="container mx-auto px-4 py-4 md:py-8">
+      <div className="flex items-center justify-between mb-4 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold">Panel de Admin</h1>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden p-2 bg-gray-100 rounded-lg">
+          {sidebarOpen ? <X className="w-6 h-6" /> : <Settings className="w-6 h-6" />}
+        </button>
+      </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-8">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white rounded-lg shadow-md p-6">
-            <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center mb-4`}>
-              <stat.icon className="w-6 h-6 text-white" />
+          <div key={i} className="bg-white rounded-lg shadow-md p-3 md:p-6">
+            <div className={`w-8 h-8 md:w-12 md:h-12 ${stat.color} rounded-lg flex items-center justify-center mb-2 md:mb-4`}>
+              <stat.icon className="w-4 h-4 md:w-6 md:h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold">{stat.value}</p>
-            <p className="text-gray-500 text-sm">{stat.label}</p>
+            <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
+            <p className="text-gray-500 text-xs md:text-sm">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto">
+      {/* Tabs - Desktop */}
+      <div className="hidden md:flex gap-2 mb-6 overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -256,62 +263,75 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* Tabs - Mobile */}
+      <div className="md:hidden mb-4">
+        <div className={`bg-white rounded-lg shadow-md p-2 ${sidebarOpen ? 'block' : 'hidden'}`}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setSidebarOpen(false) }}
+              className={`w-full px-4 py-3 rounded-lg flex items-center gap-3 ${activeTab === tab.id ? 'bg-teal-600 text-white' : 'hover:bg-gray-100'}`}
+            >
+              <tab.icon className="w-5 h-5" /> {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Content */}
       <div className="bg-white rounded-lg shadow-md p-6">
         {activeTab === 'dashboard' && (
           <div>
-            <h2 className="text-xl font-bold mb-6">Resumen de la Tienda</h2>
+            <h2 className="text-lg md:text-xl font-bold mb-4 md:mb-6">Resumen de la Tienda</h2>
             
             {/* Stats Grid - Primera fila */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-lg text-white">
-                <p className="text-sm opacity-80">Pedidos Totales</p>
-                <p className="text-3xl font-bold">{totalOrders}</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 md:p-4 rounded-lg text-white">
+                <p className="text-xs md:text-sm opacity-80">Pedidos Totales</p>
+                <p className="text-2xl md:text-3xl font-bold">{totalOrders}</p>
                 <p className="text-xs opacity-70">{todayOrders} hoy</p>
               </div>
-              <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-lg text-white">
-                <p className="text-sm opacity-80">Pendientes</p>
-                <p className="text-3xl font-bold">{pendingOrders}</p>
+              <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-3 md:p-4 rounded-lg text-white">
+                <p className="text-xs md:text-sm opacity-80">Pendientes</p>
+                <p className="text-2xl md:text-3xl font-bold">{pendingOrders}</p>
                 <p className="text-xs opacity-70">por procesar</p>
               </div>
-              <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-lg text-white">
-                <p className="text-sm opacity-80">Completados</p>
-                <p className="text-3xl font-bold">{completedOrders}</p>
-                <p className="text-xs opacity-70">{totalOrders > 0 ? Math.round((completedOrders/totalOrders)*100) : 0}% del total</p>
+              <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 md:p-4 rounded-lg text-white">
+                <p className="text-xs md:text-sm opacity-80">Completados</p>
+                <p className="text-2xl md:text-3xl font-bold">{completedOrders}</p>
+                <p className="text-xs opacity-70">{totalOrders > 0 ? Math.round((completedOrders/totalOrders)*100) : 0}%</p>
               </div>
-              <div className="bg-gradient-to-br from-teal-500 to-teal-600 p-4 rounded-lg text-white">
-                <p className="text-sm opacity-80">Productos</p>
-                <p className="text-3xl font-bold">{products.length}</p>
-                <p className="text-xs opacity-70">{lowStockProducts} con stock bajo</p>
+              <div className="bg-gradient-to-br from-teal-500 to-teal-600 p-3 md:p-4 rounded-lg text-white">
+                <p className="text-xs md:text-sm opacity-80">Productos</p>
+                <p className="text-2xl md:text-3xl font-bold">{products.length}</p>
+                <p className="text-xs opacity-70">{lowStockProducts} bajo stock</p>
               </div>
             </div>
 
             {/* Stats Grid - Segunda fila */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-lg text-white">
-                <p className="text-sm opacity-80">Ingresos Totales</p>
-                <p className="text-2xl font-bold">{formatPrice(totalRevenue)}</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-3 md:p-4 rounded-lg text-white">
+                <p className="text-xs md:text-sm opacity-80">Ingresos Totales</p>
+                <p className="text-lg md:text-2xl font-bold">{formatPrice(totalRevenue)}</p>
               </div>
-              <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-lg text-white">
-                <p className="text-sm opacity-80">Este Mes</p>
-                <p className="text-2xl font-bold">{formatPrice(monthlyRevenue)}</p>
+              <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 md:p-4 rounded-lg text-white">
+                <p className="text-xs md:text-sm opacity-80">Este Mes</p>
+                <p className="text-lg md:text-2xl font-bold">{formatPrice(monthlyRevenue)}</p>
               </div>
-              <div className="bg-gradient-to-br from-pink-500 to-pink-600 p-4 rounded-lg text-white">
-                <p className="text-sm opacity-80">Clientes</p>
-                <p className="text-2xl font-bold">{uniqueCustomers}</p>
-                <p className="text-xs opacity-70">compradores únicos</p>
+              <div className="bg-gradient-to-br from-pink-500 to-pink-600 p-3 md:p-4 rounded-lg text-white">
+                <p className="text-xs md:text-sm opacity-80">Clientes</p>
+                <p className="text-lg md:text-2xl font-bold">{uniqueCustomers}</p>
               </div>
-              <div className={`p-4 rounded-lg ${outOfStock > 0 ? 'bg-red-500' : 'bg-gray-400'} text-white`}>
-                <p className="text-sm opacity-80">Sin Stock</p>
-                <p className="text-2xl font-bold">{outOfStock}</p>
-                <p className="text-xs opacity-70">productos agotados</p>
+              <div className={`p-3 md:p-4 rounded-lg ${outOfStock > 0 ? 'bg-red-500' : 'bg-gray-400'} text-white`}>
+                <p className="text-xs md:text-sm opacity-80">Sin Stock</p>
+                <p className="text-lg md:text-2xl font-bold">{outOfStock}</p>
               </div>
             </div>
 
             {/* Revenue */}
-            <div className="bg-gradient-to-r from-teal-500 to-teal-700 p-6 rounded-lg text-white mb-8">
+            <div className="bg-gradient-to-r from-teal-500 to-teal-700 p-4 md:p-6 rounded-lg text-white mb-4 md:mb-8">
               <p className="text-sm opacity-80">Ingresos Totales</p>
-              <p className="text-4xl font-bold">{formatPrice(totalRevenue)}</p>
+              <p className="text-2xl md:text-4xl font-bold">{formatPrice(totalRevenue)}</p>
             </div>
 
             {/* Low Stock Alert */}
@@ -349,22 +369,22 @@ export default function AdminPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <button onClick={openAddModal} className="p-4 bg-teal-50 rounded-lg hover:bg-teal-100 text-center">
-                <Plus className="w-8 h-8 mx-auto text-teal-600 mb-2" />
-                <span className="text-teal-700 font-medium">Agregar Producto</span>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+              <button onClick={openAddModal} className="p-3 md:p-4 bg-teal-50 rounded-lg hover:bg-teal-100 text-center">
+                <Plus className="w-6 h-8 md:w-8 mx-auto text-teal-600 mb-1 md:mb-2" />
+                <span className="text-teal-700 font-medium text-sm md:text-base">Producto</span>
               </button>
-              <button onClick={() => setActiveTab('orders')} className="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 text-center">
-                <ShoppingCart className="w-8 h-8 mx-auto text-blue-600 mb-2" />
-                <span className="text-blue-700 font-medium">Ver Pedidos</span>
+              <button onClick={() => setActiveTab('orders')} className="p-3 md:p-4 bg-blue-50 rounded-lg hover:bg-blue-100 text-center">
+                <ShoppingCart className="w-6 h-8 md:w-8 mx-auto text-blue-600 mb-1 md:mb-2" />
+                <span className="text-blue-700 font-medium text-sm md:text-base">Pedidos</span>
               </button>
-              <button onClick={() => setShowCategoryModal(true)} className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 text-center">
-                <Package className="w-8 h-8 mx-auto text-orange-600 mb-2" />
-                <span className="text-orange-700 font-medium">Agregar Categoría</span>
+              <button onClick={() => setShowCategoryModal(true)} className="p-3 md:p-4 bg-orange-50 rounded-lg hover:bg-orange-100 text-center">
+                <Package className="w-6 h-8 md:w-8 mx-auto text-orange-600 mb-1 md:mb-2" />
+                <span className="text-orange-700 font-medium text-sm md:text-base">Categoría</span>
               </button>
-              <button onClick={() => setActiveTab('settings')} className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 text-center">
-                <Settings className="w-8 h-8 mx-auto text-purple-600 mb-2" />
-                <span className="text-purple-700 font-medium">Configuración</span>
+              <button onClick={() => setActiveTab('settings')} className="p-3 md:p-4 bg-purple-50 rounded-lg hover:bg-purple-100 text-center">
+                <Settings className="w-6 h-8 md:w-8 mx-auto text-purple-600 mb-1 md:mb-2" />
+                <span className="text-purple-700 font-medium text-sm md:text-base">Ajustes</span>
               </button>
             </div>
           </div>
@@ -503,14 +523,14 @@ export default function AdminPage() {
 
         {activeTab === 'products' && (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Gestión de Productos</h2>
-              <div className="flex gap-2">
-                <button onClick={() => setShowCategoryModal(true)} className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-orange-600">
-                  <Plus className="w-4 h-4" /> Categoría
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+              <h2 className="text-lg md:text-xl font-bold">Gestión de Productos</h2>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setShowCategoryModal(true)} className="bg-orange-500 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-1 md:gap-2 hover:bg-orange-600 text-sm md:text-base">
+                  <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Categoría</span>
                 </button>
-                <button onClick={openAddModal} className="bg-teal-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-teal-700">
-                  <Plus className="w-4 h-4" /> Producto
+                <button onClick={openAddModal} className="bg-teal-600 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-1 md:gap-2 hover:bg-teal-700 text-sm md:text-base">
+                  <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Producto</span>
                 </button>
               </div>
             </div>
@@ -546,29 +566,29 @@ export default function AdminPage() {
             </div>
 
             {/* Productos por categoría */}
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
               {categories.map(cat => {
                 const catProducts = products.filter(p => p.category === cat.id)
                 if (catProducts.length === 0) return null
                 return (
-                  <div key={cat.id} className="border rounded-lg">
-                    <div className="bg-gray-100 px-4 py-2">
-                      <h3 className="font-semibold">{cat.name} ({catProducts.length})</h3>
+                  <div key={cat.id} className="border rounded-lg overflow-hidden">
+                    <div className="bg-gray-100 px-3 md:px-4 py-2">
+                      <h3 className="font-semibold text-sm md:text-base">{cat.name} ({catProducts.length})</h3>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead><tr className="border-b"><th className="text-left p-2">Imagen</th><th className="text-left p-2">Producto</th><th className="text-left p-2">Precio</th><th className="text-left p-2">Stock</th><th className="text-left p-2">Acciones</th></tr></thead>
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b"><th className="text-left p-2 whitespace-nowrap">Imagen</th><th className="text-left p-2 whitespace-nowrap">Producto</th><th className="text-left p-2 whitespace-nowrap">Precio</th><th className="text-left p-2 whitespace-nowrap">Stock</th><th className="text-left p-2 whitespace-nowrap">Acciones</th></tr></thead>
                         <tbody>
                           {catProducts.map(product => (
                             <tr key={product.id} className="border-b">
-                              <td className="p-2"><div className="w-12 h-10 bg-gray-100 rounded">{product.image && <img src={product.image} alt="" className="w-full h-full object-cover" />}</div></td>
-                              <td className="p-2">{product.name}</td>
-                              <td className="p-2">{formatPrice(product.price)}</td>
+                              <td className="p-2"><div className="w-10 md:w-12 h-8 md:h-10 bg-gray-100 rounded">{product.image && <img src={product.image} alt="" className="w-full h-full object-cover" />}</div></td>
+                              <td className="p-2 max-w-[120px] md:max-w-none truncate">{product.name}</td>
+                              <td className="p-2 whitespace-nowrap">{formatPrice(product.price)}</td>
                               <td className="p-2">{product.stock}</td>
                               <td className="p-2">
                                 <div className="flex gap-2">
-                                  <button onClick={() => openEditModal(product)} className="text-blue-500"><Edit className="w-4 h-4" /></button>
-                                  <button onClick={() => setShowDeleteConfirm(product.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                  <button onClick={() => openEditModal(product)} className="text-blue-500 p-1"><Edit className="w-4 h-4" /></button>
+                                  <button onClick={() => setShowDeleteConfirm(product.id)} className="text-red-500 p-1"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                               </td>
                             </tr>
@@ -591,20 +611,20 @@ export default function AdminPage() {
 
       {/* Modal Agregar/Editar Producto */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-xl font-bold">{editingProduct ? 'Editar' : 'Agregar'} Producto</h3>
-              <button onClick={() => setShowModal(false)}><X className="w-5 h-5" /></button>
+            <div className="flex justify-between items-center p-3 md:p-4 border-b">
+              <h3 className="text-lg md:text-xl font-bold">{editingProduct ? 'Editar' : 'Agregar'} Producto</h3>
+              <button onClick={() => setShowModal(false)} className="p-1"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSave} className="p-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium mb-1">Nombre *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full border rounded-lg px-4 py-2" required /></div>
-                <div><label className="block text-sm font-medium mb-1">Categoría *</label><select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full border rounded-lg px-4 py-2">{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                <div><label className="block text-sm font-medium mb-1">Precio *</label><input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full border rounded-lg px-4 py-2" required /></div>
-                <div><label className="block text-sm font-medium mb-1">Precio anterior</label><input type="number" value={formData.originalPrice} onChange={(e) => setFormData({ ...formData, originalPrice: Number(e.target.value) })} className="w-full border rounded-lg px-4 py-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Stock</label><input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} className="w-full border rounded-lg px-4 py-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Etiqueta</label><input type="text" value={formData.badge} onChange={(e) => setFormData({ ...formData, badge: e.target.value })} className="w-full border rounded-lg px-4 py-2" placeholder="Ej: Nuevo, Oferta, Destacado" /></div>
+            <form onSubmit={handleSave} className="p-3 md:p-4 space-y-3 md:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                <div><label className="block text-sm font-medium mb-1">Nombre *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" required /></div>
+                <div><label className="block text-sm font-medium mb-1">Categoría *</label><select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base">{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                <div><label className="block text-sm font-medium mb-1">Precio *</label><input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" required /></div>
+                <div><label className="block text-sm font-medium mb-1">Precio anterior</label><input type="number" value={formData.originalPrice} onChange={(e) => setFormData({ ...formData, originalPrice: Number(e.target.value) })} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" /></div>
+                <div><label className="block text-sm font-medium mb-1">Stock</label><input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" /></div>
+                <div><label className="block text-sm font-medium mb-1">Etiqueta</label><input type="text" value={formData.badge} onChange={(e) => setFormData({ ...formData, badge: e.target.value })} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" placeholder="Ej: Nuevo, Oferta" /></div>
               </div>
               <div className="flex items-center gap-2">
                 <label htmlFor="featured" className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer transition ${
@@ -647,19 +667,19 @@ export default function AdminPage() {
 
       {/* Modal Categoría */}
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Agregar Categoría</h3>
-              <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId(''); setNewCategoryImage('') }}><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-white rounded-xl p-4 md:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-3 md:mb-4">
+              <h3 className="text-lg md:text-xl font-bold">Agregar Categoría</h3>
+              <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId(''); setNewCategoryImage('') }} className="p-1"><X className="w-5 h-5" /></button>
             </div>
-            <div className="space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Nombre</label><input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="w-full border rounded-lg px-4 py-2" placeholder="Ej: Muebles de Jardín" /></div>
-              <div><label className="block text-sm font-medium mb-1">ID (sin espacios)</label><input type="text" value={newCategoryId} onChange={(e) => setNewCategoryId(e.target.value.toLowerCase().replace(/\s+/g, '-'))} className="w-full border rounded-lg px-4 py-2" placeholder="muebles-jardin" /></div>
+            <div className="space-y-3 md:space-y-4">
+              <div><label className="block text-sm font-medium mb-1">Nombre</label><input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" placeholder="Ej: Muebles de Jardín" /></div>
+              <div><label className="block text-sm font-medium mb-1">ID (sin espacios)</label><input type="text" value={newCategoryId} onChange={(e) => setNewCategoryId(e.target.value.toLowerCase().replace(/\s+/g, '-'))} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" placeholder="muebles-jardin" /></div>
               <div>
                 <label className="block text-sm font-medium mb-1">Icono (Font Awesome)</label>
-                <input type="text" value={newCategoryIcon} onChange={(e) => setNewCategoryIcon(e.target.value)} className="w-full border rounded-lg px-4 py-2 mb-2" placeholder="fa-box" />
-                <div className="grid grid-cols-8 gap-1 max-h-28 overflow-y-auto border rounded p-2">
+                <input type="text" value={newCategoryIcon} onChange={(e) => setNewCategoryIcon(e.target.value)} className="w-full border rounded-lg px-3 md:px-4 py-2 mb-2 text-base" placeholder="fa-box" />
+                <div className="grid grid-cols-6 md:grid-cols-8 gap-1 max-h-24 md:max-h-28 overflow-y-auto border rounded p-2">
                   {iconOptions.map(icon => (
                     <button key={icon} type="button" onClick={() => setNewCategoryIcon(icon)} className={`p-1 rounded text-lg hover:bg-teal-100 ${newCategoryIcon === icon ? 'bg-teal-200' : ''}`} title={icon}>
                       <i className={`fas ${icon}`}></i>
@@ -667,9 +687,9 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
-              <div><label className="block text-sm font-medium mb-1">URL de Imagen (ImgBB)</label><input type="text" value={newCategoryImage} onChange={(e) => setNewCategoryImage(e.target.value)} className="w-full border rounded-lg px-4 py-2" placeholder="https://i.ibb.co/..." /></div>
-              <div className="flex gap-4 pt-4">
-                <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId('') }} className="flex-1 border py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
+              <div><label className="block text-sm font-medium mb-1">URL de Imagen</label><input type="text" value={newCategoryImage} onChange={(e) => setNewCategoryImage(e.target.value)} className="w-full border rounded-lg px-3 md:px-4 py-2 text-base" placeholder="https://i.ibb.co/..." /></div>
+              <div className="flex gap-3 md:gap-4 pt-3 md:pt-4">
+                <button onClick={() => { setShowCategoryModal(false); setNewCategoryName(''); setNewCategoryId('') }} className="flex-1 border py-2 rounded-lg hover:bg-gray-50 text-sm md:text-base">Cancelar</button>
                 <button onClick={() => {
                   if (!newCategoryName.trim() || !newCategoryId.trim()) { alert('Completa todos los campos'); return }
                   if (categories.find(c => c.id === newCategoryId)) { alert('Ya existe'); return }
@@ -682,7 +702,7 @@ export default function AdminPage() {
                   setNewCategoryId('')
                   setNewCategoryImage('')
                   alert('Categoría creada')
-                }} className="flex-1 bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600">Crear</button>
+                }} className="flex-1 bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 text-sm md:text-base">Crear</button>
               </div>
             </div>
           </div>
