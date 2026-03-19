@@ -197,16 +197,15 @@ export default function AdminPage() {
       setLoadingFirestoreOrders(true)
       try {
         const ordersQuery = query(
-          collection(db, 'orders'),
-          orderBy('createdAt', 'desc')
+          collection(db, 'pedidos'),
+          orderBy('creadoEn', 'desc')
         )
         const ordersSnapshot = await getDocs(ordersQuery)
         const ordersData = ordersSnapshot.docs.map(doc => {
           const data = doc.data()
           let dateStr = ''
           let timeStr = ''
-          const ts = data.createdAt
-          if (ts) {
+          const ts = data.creadoEn || data.createdAt
             try {
               let dateObj = ts?.seconds ? new Date(ts.seconds * 1000) : new Date(ts)
               if (!isNaN(dateObj.getTime())) {
@@ -1127,7 +1126,7 @@ export default function AdminPage() {
               {/* Orders List */}
               {(() => {
                 const filteredOrders = allOrders.filter(order => {
-                  const orderStatus = order.status || order.paymentStatus || 'pending'
+                  const orderStatus = order.estado || order.status || order.paymentStatus || 'pendiente'
                   const matchesFilter = orderFilter === 'all' || orderStatus === orderFilter
                   const searchLower = orderSearch.toLowerCase()
                   const customerName = order.customer?.name || order.customerName || ''
@@ -1145,16 +1144,16 @@ export default function AdminPage() {
                 return (
                   <div className="space-y-4">
                     {paginatedOrders.length > 0 ? (
-                      paginatedOrders.map(order => (
                         <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                           {/* Order Header */}
                           <div className="p-4 bg-gray-50 flex flex-wrap items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
                               <div className={`w-3 h-3 rounded-full ${
-                                (order.status === 'completed' || order.paymentStatus === 'approved') ? 'bg-green-500' :
-                                order.status === 'cancelled' ? 'bg-red-500' :
+                                (order.estado === 'aprobado' || order.status === 'completed' || order.paymentStatus === 'approved') ? 'bg-green-500' :
+                                order.estado === 'rechazado' || order.estado === 'cancelado' || order.status === 'cancelled' ? 'bg-red-500' :
                                 order.status === 'shipped' ? 'bg-indigo-500' :
                                 order.status === 'processing' ? 'bg-blue-500' : 'bg-yellow-500'
+                              }`} />
                               }`} />
                               <div>
                                 <p className="font-bold text-gray-800">{order.id}</p>
@@ -1163,19 +1162,19 @@ export default function AdminPage() {
                             </div>
                             <div className="flex items-center gap-4">
                               {(() => {
-                                const displayStatus = order.status || order.paymentStatus || 'pending'
+                                const displayStatus = order.estado || order.status || order.paymentStatus || 'pendiente'
                                 return (
                                   <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${
-                                    displayStatus === 'paid' || displayStatus === 'approved' || displayStatus === 'completed' ? 'bg-green-100 text-green-700' :
-                                    displayStatus === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                    displayStatus === 'paid' || displayStatus === 'approved' || displayStatus === 'aprobado' || displayStatus === 'completed' ? 'bg-green-100 text-green-700' :
+                                    displayStatus === 'rechazado' || displayStatus === 'cancelado' || displayStatus === 'cancelled' ? 'bg-red-100 text-red-700' :
                                     displayStatus === 'shipped' ? 'bg-indigo-100 text-indigo-700' :
                                     displayStatus === 'processing' ? 'bg-blue-100 text-blue-700' :
                                     'bg-yellow-100 text-yellow-700'
                                   }`}>
-                                    {displayStatus === 'pending' ? 'Pendiente' : 
+                                    {displayStatus === 'pendiente' || displayStatus === 'pending' ? 'Pendiente' :
                                      displayStatus === 'processing' ? 'Procesando' :
                                      displayStatus === 'shipped' ? 'Enviado' :
-                                     displayStatus === 'paid' || displayStatus === 'approved' ? 'Pagado' :
+                                     displayStatus === 'paid' || displayStatus === 'approved' || displayStatus === 'aprobado' ? 'Pagado' :
                                      displayStatus === 'completed' ? 'Completado' : 'Cancelado'}
                                   </span>
                                 )

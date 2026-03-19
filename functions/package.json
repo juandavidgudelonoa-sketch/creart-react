@@ -2,7 +2,8 @@
   "name": "functions",
   "description": "Cloud Functions for CREART - Full API",
   "scripts": {
-    "serve": "firebase emulators:start --only functions",
+    "serve": "echo Use npm run dev in project root for frontend only",
+    "dev": "echo Starting frontend only (Firebase real)... && cd .. && npm run dev",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },

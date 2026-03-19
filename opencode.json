@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {},
+  "provider": {
+    "ollama": {
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "ollama/qwen3-coder:480b-cloud": {},
+        "ollama/deepseek-v3.1:671b-cloud": {}
+      }
+    }
+  },
+  "plugin": ["oh-my-opencode@latest"]
+}
