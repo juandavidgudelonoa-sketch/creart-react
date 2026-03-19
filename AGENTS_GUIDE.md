@@ -1,6 +1,22 @@
 # 🤖 Agentes Configurados - CREART
 
-## Agentes Disponibles
+## Modelos Gratuitos Utilizados
+
+| Proveedor | Modelo | Costo | Especialidad |
+|-----------|--------|-------|--------------|
+| **Ollama (Local)** | qwen2.5:3b | ✅ Gratis | Código general |
+| **Ollama (Local)** | phi3:latest | ✅ Gratis | Investigación |
+| **Ollama (Local)** | llama3:8b | ✅ Gratis | Código complejo |
+
+## Agentes Disponibles (Ollama Local)
+
+| Agente | Modelo | Temperatura | Especialidad |
+|--------|--------|-------------|--------------|
+| **coder** | qwen2.5:3b | 0.3 | Escribir código limpio |
+| **reviewer** | qwen2.5:3b | 0.4 | Revisar y detectar errores |
+| **researcher** | phi3:latest | 0.7 | Investigar y debuggear |
+| **designer** | qwen2.5:3b | 0.6 | Diseño UI/UX |
+| **backend** | qwen2.5:3b | 0.3 | Backend y Firebase |
 
 | Agente | Modelo | Temperatura | Especialidad |
 |--------|--------|-------------|--------------|
@@ -86,6 +102,11 @@ Puedes modificar:
 - Comandos personalizados
 
 ## Notas
+
+- Los agentes usan **Ollama local** (100% gratuito, sin API key)
+- Cada agente tiene su propio contexto y memoria
+- Los agentes pueden comunicarse entre sí
+- Las tareas se ejecutan en paralelo cuando es posible
 
 - Los agentes usan la API de Claude (necesita API key)
 - Cada agente tiene su propio contexto y memoria

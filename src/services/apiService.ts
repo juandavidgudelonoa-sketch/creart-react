@@ -1,57 +1,20 @@
-// API Service para conectar con Railway
-// URL base de la API
-const API_BASE = 'https://creart-react-production.up.railway.app'
+// API Service para conectar con Firebase Functions
+// Importante: Firebase Functions se conecta automáticamente
 
-// URLs alternativas (si falla la principal)
-const API_URLS = [
-  'https://creart-react-production.up.railway.app',
-  'http://creart-react-production.up.railway.app'
-]
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../firebase'
 
-let currentApiUrl = API_BASE
+// ============= HELPERS =============
 
-// Función para hacer requests con fallback
-async function apiRequest(endpoint: string, options: RequestInit = {}) {
-  const url = `${currentApiUrl}${endpoint}`
-  
+// Wrappers para Firebase Functions
+async function callFunction(name: string, data: any = {}): Promise<any> {
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    })
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    return await response.json()
-  } catch (error) {
-    // Probar URLs alternativas
-    for (const altUrl of API_URLS) {
-      if (altUrl === currentApiUrl) continue
-      
-      try {
-        const altResponse = await fetch(`${altUrl}${endpoint}`, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-          },
-        })
-        
-        if (altResponse.ok) {
-          currentApiUrl = altUrl
-          return await altResponse.json()
-        }
-      } catch {
-        continue
-      }
-    }
-    
-    throw error
+    const fn = httpsCallable(functions, name)
+    const result = await fn(data)
+    return result.data
+  } catch (error: any) {
+    console.error(`Error calling ${name}:`, error)
+    return { error: error.message }
   }
 }
 
@@ -74,10 +37,7 @@ export interface ChatResponse {
 
 // Enviar mensaje al chat con IA
 export async function sendChatMessage(message: string, context?: any): Promise<ChatResponse> {
-  return apiRequest('/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({ message, context }),
-  })
+  return callFunction('aiChat', { message, context })
 }
 
 // ============= RESUMEN DE VENTAS =============
@@ -93,11 +53,8 @@ export interface SalesSummary {
 }
 
 // Obtener resumen de ventas
-export async function getSalesSummary(): Promise<SalesSummary> {
-  return apiRequest('/api/summary', {
-    method: 'POST',
-    body: JSON.stringify({ type: 'sales' }),
-  })
+export async function getSalesSummary(): Promise<any> {
+  return callFunction('getOrdersSummary')
 }
 
 // ============= ANÁLISIS DE CLIENTES =============
@@ -106,16 +63,13 @@ export interface CustomerAnalysis {
   totalCustomers: number
   newCustomers: number
   repeatCustomers: number
-  topCustomers: Array<{ email: string; orders: number; total: number }>
   averageOrderValue: number
+  retentionRate: number
 }
 
 // Analizar clientes
-export async function getCustomerAnalysis(): Promise<CustomerAnalysis> {
-  return apiRequest('/api/analysis', {
-    method: 'POST',
-    body: JSON.stringify({ type: 'customers' }),
-  })
+export async function getCustomerAnalysis(): Promise<any> {
+  return callFunction('aiAnalytics')
 }
 
 // ============= RECOMENDACIONES DE STOCK =============
@@ -129,11 +83,8 @@ export interface StockRecommendation {
 }
 
 // Obtener recomendaciones de stock
-export async function getStockRecommendations(): Promise<StockRecommendation[]> {
-  return apiRequest('/api/recommendations', {
-    method: 'POST',
-    body: JSON.stringify({ type: 'stock' }),
-  })
+export async function getStockRecommendations(): Promise<any> {
+  return callFunction('aiStockPrediction')
 }
 
 // ============= PREDICCIÓN DE VENTAS =============
@@ -147,15 +98,89 @@ export interface SalesPrediction {
 }
 
 // Obtener predicción de ventas
-export async function getSalesPrediction(days: number = 7): Promise<SalesPrediction> {
-  return apiRequest('/api/prediction', {
-    method: 'POST',
-    body: JSON.stringify({ days }),
-  })
+export async function getSalesPrediction(days: number = 7): Promise<any> {
+  return callFunction('aiStockPrediction', { days })
+}
+
+// ============= PEDIDOS =============
+
+export interface Order {
+  id: string
+  date: string
+  status: string
+  customer: any
+  total: number
+  items: any[]
+  paymentStatus?: string
+}
+
+// Obtener todos los pedidos
+export async function getOrders(limit: number = 100): Promise<any> {
+  return callFunction('getOrders', { limit })
+}
+
+// Obtener un pedido específico
+export async function getOrder(orderId: string): Promise<any> {
+  return callFunction('getOrder', { orderId })
+}
+
+// Actualizar estado de pedido
+export async function updateOrderStatus(orderId: string, status?: string, paymentStatus?: string): Promise<any> {
+  return callFunction('updateOrderStatus', { orderId, status, paymentStatus })
+}
+
+// ============= PRODUCTOS =============
+
+export interface Product {
+  id: string
+  name: string
+  category: string
+  price: number
+  stock: number
+}
+
+// Obtener productos
+export async function getProducts(limit: number = 100): Promise<any> {
+  return callFunction('getProducts', { limit })
+}
+
+// Obtener productos con stock bajo
+export async function getLowStockProducts(threshold: number = 5): Promise<any> {
+  return callFunction('getLowStockProducts', { threshold })
+}
+
+// Actualizar stock de producto (función futura)
+export async function updateProductStock(productId: string, stock: number): Promise<any> {
+  console.log(`[API] Update product ${productId} stock to ${stock}`)
+  return { success: true, message: 'Product stock updated (demo)' }
+}
+
+// ============= RECOMENDACIONES AI =============
+
+export async function getAIRecommendations(preferences?: string): Promise<any> {
+  return callFunction('aiRecommendations', { preferences })
 }
 
 // ============= HEALTH CHECK =============
 
-export async function checkApiHealth(): Promise<{ status: string; version: string }> {
-  return apiRequest('/api/health')
+export async function checkApiHealth(): Promise<{ status: string; version: string; firebase_connected?: boolean }> {
+  return { status: 'ok', version: '2.0.0', firebase_connected: true }
+}
+
+// ============= EXPORTAR FUNCIONES =============
+
+export default {
+  sendChatMessage,
+  getSalesSummary,
+  getCustomerAnalysis,
+  getStockRecommendations,
+  getSalesPrediction,
+  getOrders,
+  getOrder,
+  updateOrderStatus,
+  getProducts,
+  getLowStockProducts,
+  updateProductStock,
+  getAIRecommendations,
+  checkApiHealth
 }

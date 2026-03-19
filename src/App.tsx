@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router'
 import Layout from './components/Layout'
+import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import CatalogPage from './pages/CatalogPage'
 import ProductDetailPage from './pages/ProductDetailPage'
@@ -16,6 +17,7 @@ import AboutPage from './pages/AboutPage'
 import PoliciesPage from './pages/PoliciesPage'
 import TermsPage from './pages/TermsPage'
 import PrivacyPage from './pages/PrivacyPage'
+import SuccessPage from './pages/SuccessPage'
 
 function App() {
   return (
@@ -37,7 +39,15 @@ function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="history" element={<HistoryPage />} />
-        <Route path="admin" element={<AdminPage />} />
+        <Route path="success" element={<SuccessPage />} />
+        <Route 
+          path="admin" 
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminPage />
+            </ProtectedRoute>
+          } 
+        />
       </Route>
     </Routes>
   )

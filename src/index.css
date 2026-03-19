@@ -3,20 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --color-orange: #f57c00;
-  --color-teal: #009688;
-  --color-green: #4caf50;
-  --color-red: #e53935;
-  --color-dark: #263238;
-  --color-gray: #757575;
-  --color-light: #f5f7fa;
-  --color-light-gray: #e0e0e0;
+  --color-primary: #d97706;       /* Warm amber */
+  --color-primary-dark: #b45309;
+  --color-secondary: #0d9488;     /* Teal */
+  --color-secondary-dark: #0f766e;
+  --color-accent: #f43f5e;        /* Rose accent */
+  --color-dark: #1f2937;
+  --color-gray: #6b7280;
+  --color-light: #f9fafb;
+  --color-light-gray: #f3f4f6;
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 body {
   background-color: var(--color-light);
   color: var(--color-dark);
   line-height: 1.6;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* Custom animations */
@@ -25,8 +30,88 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.5s ease-out forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.5s ease-out forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Stagger animation delays */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #d97706, #0d9488);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Better shadows */
+.shadow-card {
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.shadow-card:hover {
+  box-shadow: var(--shadow-large);
+  transform: translateY(-4px);
 }
 
 /* Toast styles */
@@ -47,12 +132,12 @@ body {
 }
 
 .toast.error {
-  background: var(--color-red);
+  background: #ef4444;
   color: white;
 }
 
 .toast.success {
-  background: var(--color-green);
+  background: #10b981;
   color: white;
 }
 
@@ -96,9 +181,9 @@ body {
 /* WhatsApp float button */
 .whatsapp-float {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: #25D366;
+  bottom: 24px;
+  right: 24px;
+  background: linear-gradient(135deg, #25D366, #20BD5A);
   color: white;
   width: 60px;
   height: 60px;
@@ -107,13 +192,227 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+  box-shadow: 0 8px 25px rgba(37, 211, 102, 0.4);
   z-index: 1000;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
 }
 
 .whatsapp-float:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.5);
+  transform: scale(1.1) translateY(-4px);
+  box-shadow: 0 12px 35px rgba(37, 211, 102, 0.5);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #d97706, #0d9488);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #b45309, #0f766e);
+}
+
+/* Focus states */
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid #d97706;
+  outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(217, 119, 6, 0.2);
+  color: #1f2937;
+}
+
+/* ============================================
+   ANIMACIONES ADICIONALES PARA BOTONES Y MENUS
+   ============================================ */
+
+/* Boton principal con efecto ripple */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-primary:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Animacion de menu */
+.nav-item {
+  position: relative;
+}
+
+.nav-item::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #d97706, #0d9488);
+  transition: width 0.3s ease;
+}
+
+.nav-item:hover::after {
+  width: 100%;
+}
+
+/* Boton con bounce al hover */
+.btn-bounce {
+  transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.btn-bounce:hover {
+  transform: scale(1.05);
+}
+
+.btn-bounce:active {
+  transform: scale(0.95);
+}
+
+/* Animacion de entrada con delay escalonado */
+.animate-enter {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: animateEnter 0.5s ease forwards;
+}
+
+.animate-enter-delay-1 { animation-delay: 0.1s; }
+.animate-enter-delay-2 { animation-delay: 0.2s; }
+.animate-enter-delay-3 { animation-delay: 0.3s; }
+.animate-enter-delay-4 { animation-delay: 0.4s; }
+.animate-enter-delay-5 { animation-delay: 0.5s; }
+
+@keyframes animateEnter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Efecto shine en botones */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -100%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transform: skewX(-25deg);
+  transition: left 0.5s;
+}
+
+.btn-shine:hover::after {
+  left: 150%;
+}
+
+/* Efecto pulse en iconos */
+.icon-pulse {
+  transition: transform 0.3s ease;
+}
+
+.icon-pulse:hover {
+  animation: iconPulse 0.6s ease;
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+/* Card con elevacion progresiva */
+.card-elevate {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-elevate:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Loading skeleton mejorado */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Reducir animaciones si el usuario prefiere */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Transicion suave para todos los elementos interactivos */
+a, button, input, select, textarea {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus ring mejorado */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.4);
+}
+
+/* Animacion deaparicion suave */
+.fade-out {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
 }

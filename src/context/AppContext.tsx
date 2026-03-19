@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { actualizarEstado, subscribePedidos } from '../services/pedidosService'
 
 // Types
 export interface Product {
@@ -152,7 +153,7 @@ interface AppContextType {
   
   // Orders
   orders: Order[]
-  addOrder: (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }) => void
+  addOrder: (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }, userEmail?: string) => void
   updateOrderStatus: (orderId: string, status: Order['status']) => void
   getOrderById: (orderId: string) => Order | undefined
   
@@ -242,6 +243,18 @@ const defaultProducts: Product[] = [
   // Escritorios
   { id: 'escritorio-oficina', name: 'Escritorio Oficina', category: 'escritorios', price: 650000, originalPrice: 849000, description: 'Ergonómico y profesional', rating: 5, reviews: 18, badge: 'Popular', stock: 7, features: ['Cajón archivador', 'Pasacables', 'Regulable'], image: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=400&h=400&fit=crop' },
   { id: 'escritoriojuvenil', name: 'Escritorio Juvenil', category: 'escritorios', price: 449000, originalPrice: 599000, description: 'Compacto para habitaciones', rating: 4, reviews: 14, stock: 9, features: ['Compacto', 'Estante libros', 'Color blanco'], image: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=400&h=400&fit=crop' },
+  
+  // Centro Entretenimiento
+  { id: 'centro-moderno', name: 'Centro Entretenimiento Moderno', category: 'centro-entretenimiento', price: 1450000, originalPrice: 1899000, description: 'Mueble para TV moderno con almacenamiento', rating: 5, reviews: 12, badge: 'Nuevo', stock: 5, features: ['Para TV hasta 55"', '2 cajones', '2 puertas'], image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=400&fit=crop' },
+  { id: 'centro-minimal', name: 'Centro Entretenimiento Minimal', category: 'centro-entretenimiento', price: 1190000, originalPrice: 1499000, description: 'Diseño minimalista y elegante', rating: 4, reviews: 8, stock: 6, features: ['Líneas limpias', 'Estante flotante', 'Pasacables'], image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=400&fit=crop' },
+  { id: 'centro-rustico', name: 'Centro Entretenimiento Rústico', category: 'centro-entretenimiento', price: 1650000, originalPrice: 2199000, description: 'Madera maciza estilo rústico', rating: 5, reviews: 6, badge: 'Premium', stock: 3, features: ['Madera teca', 'Capacidad 65"', 'Baldas abiertas'], image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&h=400&fit=crop' },
+  { id: 'centro-colgante', name: 'Centro Entretenimiento Colgante', category: 'centro-entretenimiento', price: 890000, originalPrice: 1199000, description: 'Sistema de pared ahorra espacio', rating: 4, reviews: 10, badge: 'Oferta', stock: 8, features: ['Montaje pared', 'Para TV 50"', '3 niveles'], image: 'https://images.unsplash.com/photo-1505693314120-0d443867891c?w=400&h=400&fit=crop' },
+  
+  // Mueble Baño
+  { id: 'mueble-lavamanos', name: 'Mueble Lavamanos Colgado', category: 'mueble-bano', price: 650000, originalPrice: 849000, description: 'Mueble de baño con lavamanos integrado', rating: 5, reviews: 15, badge: 'Nuevo', stock: 7, features: ['Lavamanos cerámico', '2 cajones', 'Resistente humedad'], image: 'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=400&h=400&fit=crop' },
+  { id: 'mueble-espejo', name: 'Mueble Baño con Espejo', category: 'mueble-bano', price: 549000, originalPrice: 699000, description: 'Con espejo LED y almacenamiento', rating: 4, reviews: 12, stock: 10, features: ['Espejo LED', '1 cajón', 'Anti-vaho'], image: 'https://images.unsplash.com/photo-1620626011761-996317b8d101?w=400&h=400&fit=crop' },
+  { id: 'mueble-colgante-bano', name: 'Mueble Baño Colgante', category: 'mueble-bano', price: 749000, originalPrice: 949000, description: 'Diseño moderno ahorra espacio', rating: 5, reviews: 8, stock: 6, features: ['Montaje pared', 'Puerta espejo', '2 niveles'], image: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400&h=400&fit=crop' },
+  { id: 'mueble-juego-bano', name: 'Juego Mueble Baño 3 Piezas', category: 'mueble-bano', price: 1250000, originalPrice: 1599000, description: 'Set completo para baño', rating: 5, reviews: 5, badge: 'Combo', stock: 4, features: ['Mueble principal', 'Espejo', 'Lavamanos'], image: 'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=400&h=400&fit=crop' },
 ]
 
 // Available coupons
@@ -286,7 +299,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reviews, setReviews] = useState<Review[]>(() => {
     const saved = localStorage.getItem('creart_reviews')
     return saved ? JSON.parse(saved) : [
-      { id: '1', productId: 'silla-elly', userName: 'Carlos M.', rating: 5, comment: 'Excelente calidad, muy cómoda', date: '2026-01-15' },
+      { id: '1', productId: 'silla-ely', userName: 'Carlos M.', rating: 5, comment: 'Excelente calidad, muy cómoda', date: '2026-01-15' },
       { id: '2', productId: 'mesa-nova', userName: 'Ana L.', rating: 5, comment: 'Hermosa mesa, perfecta para nuestra familia', date: '2026-01-20' },
     ]
   })
@@ -344,6 +357,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         zapateras: true,
         repisas: true,
         escritorios: true,
+        'centro-entretenimiento': true,
+        'mueble-bano': true,
       },
     }
   })
@@ -457,7 +472,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearCompare = () => setCompareList([])
 
   // Orders functions
-  const addOrder = (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }) => {
+  const addOrder = (items: CartItem[], total: number, address?: string, customerData?: { name: string; phone: string; email: string; cedula?: string; notes?: string; paymentMethod?: string }, userEmail?: string) => {
     const newOrder: Order = {
       id: `ORD-${Date.now()}`,
       date: new Date().toLocaleDateString('es-CO'),
@@ -467,7 +482,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       shippingAddress: address || customer.address,
       customerName: customerData?.name || customer.name,
       customerPhone: customerData?.phone || customer.phone,
-      customerEmail: customerData?.email || customer.email,
+      customerEmail: customerData?.email || customer.email || userEmail || '',
       customerCedula: customerData?.cedula,
       customerNotes: customerData?.notes,
       paymentMethod: customerData?.paymentMethod,
@@ -478,7 +493,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Pedido realizado con éxito', 'success')
   }
 
-  const updateOrderStatus = (orderId: string, status: Order['status']) => {
+  const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     // Buscar el pedido
     const order = orders.find(o => o.id === orderId)
     if (!order) return
@@ -500,7 +515,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
     }
 
+    // Actualizar en localStorage
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o))
+    
+    // ACTUALIZAR EN FIREBASE - Esto hace que se sincronice en tiempo real con el usuario
+    try {
+      await actualizarEstado(orderId, status)
+      console.log(`Estado del pedido ${orderId} actualizado a ${status} en Firebase`)
+    } catch (error) {
+      console.error('Error actualizando estado en Firebase:', error)
+    }
   }
 
   const getOrderById = (orderId: string) => orders.find(o => o.id === orderId)
@@ -513,11 +537,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   // Reviews functions
-  const addReview = (productId: string, rating: number, comment: string) => {
+  const addReview = (productId: string, rating: number, comment: string, userName?: string) => {
     const newReview: Review = {
       id: Date.now().toString(),
       productId,
-      userName: user?.name || 'Usuario',
+      userName: userName || 'Usuario',
       rating,
       comment,
       date: new Date().toLocaleDateString('es-CO'),

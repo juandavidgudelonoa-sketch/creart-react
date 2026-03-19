@@ -1,10 +1,14 @@
 import { Link } from 'react-router'
-import { Minus, Plus, Trash2, CheckCircle, ShoppingBag, MapPin, CreditCard, Truck, ShieldCheck, Gift } from 'lucide-react'
+import { Minus, Plus, Trash2, CheckCircle, ShoppingBag, MapPin, CreditCard, Truck, ShieldCheck, Gift, X, XCircle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { useState, useEffect, useRef } from 'react'
+import { getFunctions, httpsCallable } from 'firebase/functions'
+import { app } from '../firebase'
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, cartSubtotal, cartIVA, cartTotal, clearCart, customer, storeSettings, user, loadCustomer, addOrder, setCustomer, saveCustomer } = useApp()
+  const { user: authUser, customer: authCustomer } = useAuth()
   
   useEffect(() => {
     loadCustomer()
@@ -20,14 +24,18 @@ export default function CartPage() {
   })
   
   useEffect(() => {
+    // Combinar datos del usuario de ambos contextos
+    const userData = authUser || user
+    const customerDataSource = authCustomer || customer
+    
     setCustomerData(prev => ({
       ...prev,
-      name: customer.name || user?.name || prev.name,
-      phone: customer.phone || prev.phone,
-      address: customer.address || prev.address,
-      email: user?.email || customer.email || prev.email,
+      name: customerDataSource.name || userData?.name || prev.name,
+      phone: customerDataSource.phone || prev.phone,
+      address: customerDataSource.address || prev.address,
+      email: userData?.email || customerDataSource.email || prev.email,
     }))
-  }, [user, customer])
+  }, [user, customer, authUser, authCustomer])
   
   const [orderConfirmed, setOrderConfirmed] = useState(false)
   const [orderId, setOrderId] = useState('')
@@ -71,11 +79,11 @@ export default function CartPage() {
     addOrder(cart, totalWithShipping, customerData.address, {
       name: customerData.name,
       phone: customerData.phone,
-      email: customerData.email,
+      email: customerData.email || authUser?.email || '',
       cedula: customerData.cedula,
       notes: customerData.notes,
       paymentMethod: paymentMethod,
-    })
+    }, authUser?.email)
     
     setCustomer({
       name: customerData.name,
@@ -148,6 +156,355 @@ export default function CartPage() {
     window.open(whatsappUrl, '_blank')
   }
 
+  // MercadoPago - Estado para Checkout API (sin redirect)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const [showMercadoPagoForm, setShowMercadoPagoForm] = useState(false)
+  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form')
+  const cardFormRef = useRef<any>(null)
+  const [mercadoPagoReady, setMercadoPagoReady] = useState(false)
+
+  // Inicializar MercadoPago cuando se muestra el formulario
+  useEffect(() => {
+    if (showMercadoPagoForm) {
+      // Pequeño delay para asegurar que el DOM esté listo
+      const timer = setTimeout(() => {
+        initializeMercadoPago()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [showMercadoPagoForm])
+
+  // Estado para los datos de la tarjeta
+  const [cardData, setCardData] = useState({
+    cardNumber: '',
+    cardExpirationMonth: '',
+    cardExpirationYear: '',
+    cardCVV: '',
+    cardholderName: '',
+    cardholderEmail: '',
+    docType: 'CC',
+    docNumber: ''
+  })
+
+  // Verificar si el SDK de MercadoPago está cargado
+  const initializeMercadoPago = async () => {
+    // Verificar que el SDK esté disponible
+    if (typeof window !== 'undefined' && (window as any).MercadoPago) {
+      console.log('✅ SDK de MercadoPago cargado correctamente')
+      setMercadoPagoReady(true)
+    } else {
+      console.error('❌ SDK de MercadoPago no está cargado')
+      // Intentar cargar el SDK dinámicamente
+      const script = document.createElement('script')
+      script.src = 'https://sdk.mercadopago.com/js/v2'
+      script.onload = () => {
+        console.log('✅ SDK cargado dinámicamente')
+        setMercadoPagoReady(true)
+      }
+      script.onerror = () => {
+        console.error('❌ Error al cargar el SDK de MercadoPago')
+        alert('Error al cargar el sistema de pagos. Por favor recarga la página.')
+      }
+      document.head.appendChild(script)
+    }
+  }
+
+  // Submit payment - Procesar pago y guardar en Realtime Database
+  const submitPayment = async (
+    token: string, 
+    paymentMethodId: string, 
+    itemsCart: any[], 
+    totalAmount: number, 
+    customerInfo: any,
+    securityCode?: string
+  ) => {
+    console.log('submitPayment llamado con:', { token, paymentMethodId, total: totalAmount, securityCode })
+    console.log('Items recibidos:', itemsCart)
+    
+    setPaymentStep('processing')
+    
+    try {
+      const functions = getFunctions(app)
+      const processPaymentFn = httpsCallable(functions, 'processPayment')
+      
+      console.log('Card items:', itemsCart)
+      console.log('Cart length:', itemsCart.length)
+      console.log('Customer data:', customerInfo)
+      console.log('Card CVV:', cardData.cardCVV)
+      
+      const orderId = `ORD-${Date.now()}`
+      
+      const paymentData = {
+        token,
+        paymentMethodId: paymentMethodId || 'visa',
+        transactionAmount: totalAmount,
+        securityCode: securityCode || '',
+        description: `Compra en CREART - ${itemsCart.length} producto(s)`,
+        payer: {
+          email: customerInfo.email || 'cliente@correo.com',
+          identification: {
+            type: 'CC',
+            number: customerInfo.cedula || '00000000'
+          }
+        },
+        externalReference: orderId,
+        items: itemsCart.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        customer: {
+          name: customerInfo.name,
+          phone: customerInfo.phone,
+          address: customerInfo.address
+        }
+      }
+      
+      console.log('Enviando pago a Cloud Function...', paymentData)
+      
+      // Enviar datos a processPayment
+      const result = await processPaymentFn(paymentData) as { data: { status: string; message?: string; paymentId?: string; statusDetail?: string } }
+      console.log('Resultado del pago:', result.data)
+      
+      const paymentResult = result.data
+      
+      if (paymentResult.status === 'approved') {
+        // También guardar en Firestore para compatibilidad con el panel admin
+        addOrder(itemsCart, totalAmount, customerInfo.address, {
+          name: customerInfo.name,
+          phone: customerInfo.phone,
+          email: customerInfo.email || '',
+          cedula: customerInfo.cedula,
+          notes: customerInfo.notes,
+          paymentMethod: 'MercadoPago',
+        }, authUser?.email)
+        
+        setOrderId(orderId)
+        setPaymentStep('success')
+        clearCart()
+      } else {
+        setPaymentStep('error')
+        alert('Pago rechazado: ' + (paymentResult.message || 'Intenta con otra tarjeta'))
+      }
+      
+    } catch (error: any) {
+      console.error('Error:', error)
+      setPaymentStep('error')
+      alert('Error al procesar el pago: ' + error.message)
+    }
+  }
+
+  // Checkout Pro - Redirigir a MercadoPago
+  const handleMercadoPagoCheckout = async () => {
+    if (!customerData.name.trim() || !customerData.phone.trim() || !customerData.address.trim()) {
+      alert('Por favor completa todos los datos de envío')
+      return
+    }
+
+    try {
+      setIsProcessingPayment(true)
+      
+      const currentCart = [...cart]
+      const currentTotal = totalWithShipping
+      
+      if (currentCart.length === 0) {
+        alert('El carrito está vacío')
+        setIsProcessingPayment(false)
+        return
+      }
+      
+      // Llamar a la Cloud Function para crear preferencia
+      const { getFunctions, httpsCallable } = await import('firebase/functions')
+      const functions = getFunctions()
+      const createPreference = httpsCallable(functions, 'createPaymentPreference')
+      
+      const orderId = `ORD-${Date.now()}`
+      
+      console.log('Enviando datos:', {
+        items: currentCart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        customer: customerData,
+        orderId: orderId
+      })
+      
+      // Enviar datos directamente sin wrapper 'data'
+      const result = await createPreference({
+        items: currentCart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        customer: customerData,
+        orderId: orderId
+      })
+      
+      console.log('Resultado:', result)
+      
+      // La respuesta viene en result.data
+      const responseData = (result as any).data
+      if (responseData?.initPoint) {
+        window.location.href = responseData.initPoint
+      } else if (responseData?.sandbox_init_point) {
+        window.location.href = responseData.sandbox_init_point
+      } else {
+        console.error('No se recibió initPoint:', responseData)
+        alert('Error al crear la preferencia de pago')
+        setIsProcessingPayment(false)
+      }
+    } catch (error: any) {
+      console.error('Error completo:', error)
+      alert('Error al procesar el pago: ' + (error?.message || 'Por favor intenta de nuevo.'))
+      setIsProcessingPayment(false)
+    }
+  }
+
+  // Función para procesar pago directo con tarjeta (Checkout API)
+  const handleCardPayment = async () => {
+    // Validar datos primero
+    if (!customerData.name.trim() || !customerData.phone.trim() || !customerData.address.trim()) {
+      alert('Por favor completa todos los datos de envío')
+      return
+    }
+    
+    // Validar datos de tarjeta
+    if (!cardData.cardNumber.trim() || !cardData.cardExpirationMonth.trim() || 
+        !cardData.cardExpirationYear.trim() || !cardData.cardCVV.trim() ||
+        !cardData.cardholderName.trim() || !cardData.cardholderEmail.trim() ||
+        !cardData.docNumber.trim()) {
+      alert('Por favor completa todos los datos de la tarjeta')
+      return
+    }
+
+    setPaymentStep('processing')
+    
+    try {
+      // Inicializar MercadoPago SDK si no está listo
+      if (!(window as any).MercadoPago) {
+        const script = document.createElement('script')
+        script.src = 'https://sdk.mercadopago.com/js/v2'
+        document.head.appendChild(script)
+        await new Promise((resolve) => {
+          script.onload = resolve
+        })
+      }
+      
+      const mp = new (window as any).MercadoPago('TEST-c17fda90-bf0c-42da-876c-d27444f51979')
+      
+      console.log('=== ENVIANDO DATOS AL BACKEND ===')
+      console.log(' paymentData a enviar:', JSON.stringify({
+        cardData: {
+          cardNumber: cardData.cardNumber.replace(/\s/g, ''),
+          cardholderName: cardData.cardholderName,
+          identificationType: cardData.docType,
+          identificationNumber: cardData.docNumber,
+          securityCode: cardData.cardCVV,
+          expirationMonth: cardData.cardExpirationMonth,
+          expirationYear: cardData.cardExpirationYear
+        },
+        transactionAmount: totalWithShipping
+      }))
+      
+      // Ahora llamar a la función de Firebase - el backend crea el token
+      const functions = getFunctions(app)
+      const processPaymentFn = httpsCallable(functions, 'processPayment')
+      
+      const orderId = `ORD-${Date.now()}`
+      
+      // Asegurar que haya un email válido
+      const payerEmail = cardData.cardholderEmail || customerData.email || 'cliente@creart.com'
+      
+      // Enviar datos de la tarjeta al backend - el backend crea el token
+      const paymentData = {
+        data: {  // Firebase callable envuelve en 'data'
+          // Datos de la tarjeta para crear token en backend
+          cardData: {
+            cardNumber: cardData.cardNumber.replace(/\s/g, ''),
+            cardholderName: cardData.cardholderName,
+            identificationType: cardData.docType,
+            identificationNumber: cardData.docNumber,
+            securityCode: cardData.cardCVV,
+            expirationMonth: cardData.cardExpirationMonth,
+            expirationYear: cardData.cardExpirationYear
+          },
+          transactionAmount: totalWithShipping,
+          description: `Compra en CREART - ${cart.length} producto(s)`,
+          payer: {
+            email: payerEmail,
+            first_name: customerData.name.split(' ')[0] || 'Cliente',
+            last_name: customerData.name.split(' ').slice(1).join(' ') || 'Apellido',
+            identification: {
+              type: cardData.docType,
+              number: cardData.docNumber
+            }
+          },
+          externalReference: orderId,
+          items: cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          customer: {
+            name: customerData.name,
+            phone: customerData.phone,
+            address: customerData.address
+          }
+        }
+      }
+      
+      console.log('Enviando pago a Cloud Function...', paymentData)
+      console.log('Expiration datos:', cardData.cardExpirationMonth, cardData.cardExpirationYear)
+      
+      const result = await processPaymentFn(paymentData)
+      console.log('Resultado del pago:', result)
+      
+      const paymentResult = (result as any).data
+      
+      if (paymentResult.status === 'approved') {
+        // Guardar orden en Firestore
+        addOrder(cart, totalWithShipping, customerData.address, {
+          name: customerData.name,
+          phone: customerData.phone,
+          email: customerData.email || '',
+          cedula: customerData.cedula,
+          notes: customerData.notes,
+          paymentMethod: 'MercadoPago',
+        }, authUser?.email)
+        
+        setOrderId(orderId)
+        setPaymentStep('success')
+        clearCart()
+      } else {
+        setPaymentStep('error')
+        const errorMsg = paymentResult.message || paymentResult.statusDetail || 'Intenta con otra tarjeta'
+        
+        // Si el pago directo falla, sugerir Checkout Pro
+        if (errorMsg.includes('rejected') || errorMsg.includes('other_reason')) {
+          alert('El pago con tarjeta fue rechazado. Te recomendamos usar la opción "MercadoPago" que te redirigirá a una página segura de pagos.')
+        } else {
+          alert('Pago rechazado: ' + errorMsg)
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('Error completo:', error)
+      setPaymentStep('error')
+      // Sugerir Checkout Pro si hay error de conexión o tarjeta
+      const errorMsg = error.message || ''
+      if (errorMsg.includes('network') || errorMsg.includes('fetch') || errorMsg.includes('card')) {
+        alert('Error de conexión con el pago. Te recomendamos usar "MercadoPago" (redirect) para una experiencia más confiable.')
+      } else {
+        alert('Error al procesar el pago: ' + (error.message || 'Por favor intenta con otra tarjeta'))
+      }
+    }
+  }
+
   if (cart.length === 0 && !orderConfirmed) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-16">
@@ -197,76 +554,76 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-4 md:py-8">
+      <div className="container mx-auto px-2 md:px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">🛒 Carrito de Compras</h1>
-          <p className="text-gray-600">Revisa tus productos y completa tu pedido</p>
+        <div className="mb-4 md:mb-8">
+          <h1 className="text-2xl md:text-4xl font-bold text-gray-800 mb-1 md:mb-2">🛒 Carrito</h1>
+          <p className="text-gray-600 text-sm md:text-base">Revisa tus productos</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8">
           {/* Columna izquierda: Productos y Datos (8 columnas) */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-4 md:space-y-6">
             
             {/* Lista de Productos */}
             <div className="bg-white rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
-              <div className="bg-gradient-to-r from-teal-600 to-teal-700 p-4 md:p-6">
+              <div className="bg-gradient-to-r from-teal-600 to-teal-700 p-3 md:p-6">
                 <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
                   <ShoppingBag className="w-5 h-5 md:w-6 md:h-6" />
                   Productos ({cart.length})
                 </h2>
               </div>
-              
-              <div className="p-3 md:p-6 space-y-4 md:space-y-6">
+               
+              <div className="p-2 md:p-6 space-y-3 md:space-y-6">
                 {cart.map((item, index) => (
-                  <div key={item.id} className={`flex gap-2 md:gap-4 pb-4 md:pb-6 ${index !== cart.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                  <div key={item.id} className={`flex gap-2 md:gap-4 pb-3 md:pb-6 ${index !== cart.length - 1 ? 'border-b border-gray-100' : ''}`}>
                     {/* Imagen */}
                     <div className="w-20 h-20 md:w-28 md:h-28 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl md:rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-md">
                       {item.image ? (
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-3xl md:text-4xl">🪑</span>
+                        <span className="text-2xl md:text-4xl">🪑</span>
                       )}
                     </div>
                     
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-base md:text-lg text-gray-800 mb-1 truncate">{item.name}</h3>
-                      <p className="text-teal-600 font-bold text-lg md:text-xl mb-2 md:mb-3">{formatPrice(item.price)}</p>
+                      <h3 className="font-bold text-sm md:text-lg text-gray-800 mb-0.5 md:mb-1 truncate">{item.name}</h3>
+                      <p className="text-teal-600 font-bold text-base md:text-xl mb-2 md:mb-3">{formatPrice(item.price)}</p>
                       
                       {/* Controles de cantidad */}
-                      <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                      <div className="flex items-center gap-2 md:gap-3">
                         <div className="flex items-center bg-gray-100 rounded-full p-0.5 md:p-1">
                           <button 
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="w-11 h-11 md:w-10 md:h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-200 transition shadow-sm"
+                            onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                            className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-200 transition shadow-sm active:scale-95"
                           >
-                            <Minus className="w-4 h-4" />
+                            <Minus className="w-3 h-3 md:w-4 md:h-4" />
                           </button>
-                          <span className="text-base md:text-lg font-bold w-10 md:w-12 text-center">{item.quantity}</span>
+                          <span className="text-base md:text-lg font-bold w-8 md:w-12 text-center">{item.quantity}</span>
                           <button 
                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="w-11 h-11 md:w-10 md:h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-200 transition shadow-sm"
+                            className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-200 transition shadow-sm active:scale-95"
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-3 h-3 md:w-4 md:h-4" />
                           </button>
                         </div>
                         
                         <button 
                           onClick={() => removeFromCart(item.id)}
-                          className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 text-red-500 hover:bg-red-50 rounded-full transition"
+                          className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1 md:py-2 text-red-500 hover:bg-red-50 rounded-full transition"
                         >
-                          <Trash2 className="w-4 md:w-5 h-4 md:h-5" />
+                          <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
                           <span className="text-xs md:text-sm font-medium hidden sm:inline">Eliminar</span>
                         </button>
                       </div>
                     </div>
                     
                     {/* Subtotal */}
-                    <div className="text-right flex flex-col justify-center">
-                      <p className="text-xs md:text-sm text-gray-500 mb-0.5 md:mb-1 hidden sm:block">Subtotal</p>
-                      <p className="font-bold text-lg md:text-2xl text-gray-800">{formatPrice(item.price * item.quantity)}</p>
+                    <div className="text-right flex flex-col justify-center flex-shrink-0">
+                      <p className="text-xs md:text-sm text-gray-500 mb-0.5 md:mb-1">Subtotal</p>
+                      <p className="font-bold text-base md:text-2xl text-gray-800">{formatPrice(item.price * item.quantity)}</p>
                     </div>
                   </div>
                 ))}
@@ -274,10 +631,10 @@ export default function CartPage() {
             </div>
 
             {/* Datos de Envío */}
-            <div className="bg-white rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 md:p-6">
-                <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
-                  <MapPin className="w-5 h-5 md:w-6 md:h-6" />
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <MapPin className="w-6 h-6" />
                   Datos de Envío
                 </h2>
               </div>
@@ -421,6 +778,50 @@ export default function CartPage() {
                       </div>
                     </label>
                   )}
+                  
+                  {/* MercadoPago - Checkout Pro (Redirect) */}
+                  <label className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition ${selectedPayment === 'mercadopago' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="mercadopago"
+                      checked={selectedPayment === 'mercadopago'}
+                      onChange={() => setSelectedPayment('mercadopago')}
+                      className="w-5 h-5 text-blue-600"
+                    />
+                    <div className="flex-1">
+                      <span className="font-bold text-lg block">MercadoPago</span>
+                      <p className="text-sm text-gray-500">Redirect a MercadoPago - Recomendado</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <svg viewBox="0 0 100 100" className="w-8 h-8">
+                        <rect width="100" height="100" rx="20" fill="#009EE3"/>
+                        <text x="50" y="65" textAnchor="middle" fill="white" fontSize="40" fontWeight="bold">M</text>
+                      </svg>
+                    </div>
+                  </label>
+
+                  {/* MercadoPago - Checkout API (Direct card) */}
+                  <label className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition ${selectedPayment === 'mercadopago_direct' ? 'border-purple-600 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="mercadopago_direct"
+                      checked={selectedPayment === 'mercadopago_direct'}
+                      onChange={() => {
+                        setSelectedPayment('mercadopago_direct')
+                        setShowMercadoPagoForm(true)
+                      }}
+                      className="w-5 h-5 text-purple-600"
+                    />
+                    <div className="flex-1">
+                      <span className="font-bold text-lg block">Pago con Tarjeta</span>
+                      <p className="text-sm text-gray-500">Ingresa los datos de tu tarjeta directamente</p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                      <CreditCard className="w-6 h-6 text-purple-600" />
+                    </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -457,31 +858,31 @@ export default function CartPage() {
                   )}
                   
                   {/* Totales */}
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between text-gray-600">
+                  <div className="space-y-2 md:space-y-3 mb-4 md:mb-6">
+                    <div className="flex justify-between text-sm md:text-base text-gray-600">
                       <span>Subtotal</span>
                       <span className="font-medium">{formatPrice(cartSubtotal)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600">
+                    <div className="flex justify-between text-sm md:text-base text-gray-600">
                       <span>IVA (19%)</span>
                       <span className="font-medium">{formatPrice(cartIVA)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Envío</span>
-                      <span className={`font-bold ${freeShipping ? 'text-green-600' : 'text-gray-800'}`}>
+                      <span className="text-sm md:text-base text-gray-600">Envío</span>
+                      <span className={`font-bold text-sm md:text-base ${freeShipping ? 'text-green-600' : 'text-gray-800'}`}>
                         {freeShipping ? 'Gratis' : formatPrice(finalShipping)}
                       </span>
                     </div>
                     {deliveryTime && (
-                      <div className="flex justify-between text-sm text-gray-500">
+                      <div className="flex justify-between text-xs md:text-sm text-gray-500">
                         <span>Entrega estimada</span>
                         <span>{deliveryTime}</span>
                       </div>
                     )}
-                    <div className="border-t-2 border-gray-100 pt-4 mt-4">
+                    <div className="border-t-2 border-gray-100 pt-2 md:pt-4 mt-2 md:mt-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-xl font-bold text-gray-800">Total</span>
-                        <span className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-teal-700 bg-clip-text text-transparent">{formatPrice(totalWithShipping)}</span>
+                        <span className="text-base md:text-xl font-bold text-gray-800">Total</span>
+                        <span className="text-xl md:text-3xl font-bold text-teal-600">{formatPrice(totalWithShipping)}</span>
                       </div>
                     </div>
                   </div>
@@ -494,11 +895,47 @@ export default function CartPage() {
                         else if (selectedPayment === 'whatsapp-web') handleCheckoutWeb()
                         else if (selectedPayment === 'transferencia') handleTransferCheckout()
                         else if (selectedPayment === 'contraentrega') handleCashCheckout()
+                        else if (selectedPayment === 'mercadopago') handleMercadoPagoCheckout()
+                        else if (selectedPayment === 'mercadopago_direct') {
+                          // Validar datos de envío primero
+                          if (!customerData.name.trim() || !customerData.phone.trim() || !customerData.address.trim()) {
+                            alert('Por favor completa todos los datos de envío')
+                            return
+                          }
+                          setShowMercadoPagoForm(true)
+                        }
                       }}
-                      className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-4 rounded-2xl font-bold text-lg hover:from-teal-700 hover:to-teal-800 transition transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-3"
+                      disabled={isProcessingPayment}
+                      className={`w-full text-white py-4 rounded-2xl font-bold text-lg transition transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-3 ${
+                        selectedPayment === 'mercadopago' || selectedPayment === 'mercadopago_direct'
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' 
+                          : 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800'
+                      } ${isProcessingPayment ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      <i className="fab fa-whatsapp text-2xl"></i>
-                      Confirmar Pedido
+                      {isProcessingPayment ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          Procesando...
+                        </>
+                      ) : selectedPayment === 'mercadopago' ? (
+                        <>
+                          <svg viewBox="0 0 100 100" className="w-6 h-6">
+                            <rect width="100" height="100" rx="20" fill="white"/>
+                            <text x="50" y="65" textAnchor="middle" fill="#009EE3" fontSize="40" fontWeight="bold">M</text>
+                          </svg>
+                          Pagar con MercadoPago
+                        </>
+                      ) : selectedPayment === 'mercadopago_direct' ? (
+                        <>
+                          <CreditCard className="w-6 h-6" />
+                          Pagar con Tarjeta
+                        </>
+                      ) : (
+                        <>
+                          <i className="fab fa-whatsapp text-2xl"></i>
+                          Confirmar Pedido
+                        </>
+                      )}
                     </button>
                   ) : (
                     <div className="w-full bg-gray-200 text-gray-400 py-4 rounded-2xl font-bold text-lg text-center cursor-not-allowed">
@@ -575,6 +1012,211 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* MercadoPago Payment Modal - Checkout API (Sin redirect) */}
+      {showMercadoPagoForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-t-3xl flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <svg viewBox="0 0 100 100" className="w-10 h-10">
+                  <rect width="100" height="100" rx="20" fill="white"/>
+                  <text x="50" y="65" textAnchor="middle" fill="#009EE3" fontSize="40" fontWeight="bold">M</text>
+                </svg>
+                <div>
+                  <h3 className="text-white font-bold text-lg">Pago con MercadoPago</h3>
+                  <p className="text-blue-100 text-sm">Total: ${totalWithShipping.toLocaleString('es-CO')}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowMercadoPagoForm(false)}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {paymentStep === 'form' && (
+                <>
+                  {/* Formulario de tarjeta - Campos simples */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de tarjeta
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={19}
+                        value={cardData.cardNumber}
+                        onChange={(e) => setCardData({...cardData, cardNumber: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="1234 5678 9012 3456"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Mes (MM)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          value={cardData.cardExpirationMonth}
+                          onChange={(e) => setCardData({...cardData, cardExpirationMonth: e.target.value})}
+                          className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                          placeholder="12"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Año (AA)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          value={cardData.cardExpirationYear}
+                          onChange={(e) => setCardData({...cardData, cardExpirationYear: e.target.value})}
+                          className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                          placeholder="25"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        CVV
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={4}
+                        value={cardData.cardCVV}
+                        onChange={(e) => setCardData({...cardData, cardCVV: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="123"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre del titular
+                      </label>
+                      <input
+                        type="text"
+                        value={cardData.cardholderName}
+                        onChange={(e) => setCardData({...cardData, cardholderName: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="Nombre como aparece en la tarjeta"
+                        defaultValue={customerData.name}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={cardData.cardholderEmail}
+                        onChange={(e) => setCardData({...cardData, cardholderEmail: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="tu@email.com"
+                        defaultValue={customerData.email}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tipo de documento
+                      </label>
+                      <select
+                        value={cardData.docType}
+                        onChange={(e) => setCardData({...cardData, docType: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                      >
+                        <option value="CC">Cédula de ciudadanía</option>
+                        <option value="CE">Cédula de extranjería</option>
+                        <option value="NIT">NIT</option>
+                        <option value="PP">Pasaporte</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de documento
+                      </label>
+                      <input
+                        type="text"
+                        value={cardData.docNumber}
+                        onChange={(e) => setCardData({...cardData, docNumber: e.target.value})}
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                        placeholder="Número de documento"
+                        defaultValue={customerData.cedula}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleCardPayment}
+                    disabled={!mercadoPagoReady}
+                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-xl font-bold hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-50"
+                  >
+                    {mercadoPagoReady ? `Pagar $${totalWithShipping.toLocaleString('es-CO')}` : 'Cargando...'}
+                  </button>
+
+                  <p className="text-xs text-gray-500 mt-4 text-center flex items-center justify-center gap-1">
+                    <CreditCard className="w-4 h-4" />
+                    Tus datos están seguros con MercadoPago
+                  </p>
+                </>
+              )}
+
+              {paymentStep === 'processing' && (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">Procesando pago...</h3>
+                  <p className="text-gray-600">Por favor espera mientras verificamos tu pago</p>
+                </div>
+              )}
+
+              {paymentStep === 'success' && (
+                <div className="text-center py-12">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-green-600 mb-2">¡Pago exitoso!</h3>
+                  <p className="text-gray-600 mb-6">Tu pago ha sido procesado correctamente.</p>
+                  <button
+                    onClick={() => {
+                      setShowMercadoPagoForm(false)
+                    }}
+                    className="bg-green-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-600 transition"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              )}
+
+              {paymentStep === 'error' && (
+                <div className="text-center py-12">
+                  <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-red-600 mb-2">Error en el pago</h3>
+                  <p className="text-gray-600 mb-4">El pago fue rechazado. Por favor intenta con otra tarjeta.</p>
+                  <button
+                    onClick={() => {
+                      setPaymentStep('form')
+                    }}
+                    className="bg-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-600 transition"
+                  >
+                    Intentar de nuevo
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

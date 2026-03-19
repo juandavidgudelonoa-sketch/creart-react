@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CREART - Muebles Personalizados en Cali, Colombia</title>
     <meta name="description" content="CREART - Muebles personalizados en Cali, Colombia. Sillas, mesas, taburetes, aparadores y más. Diseño único para tu hogar o negocio.">
@@ -10,19 +10,57 @@
     <meta name="author" content="CREART">
     <meta name="robots" content="index, follow">
     
+    <!-- SEO Adicional -->
+    <meta name="theme-color" content="#d97706">
+    <meta name="geo.region" content="CO-Valle del Cauca">
+    <meta name="geo.placename" content="Cali">
+    <meta name="format-detection" content="telephone=yes">
+    <link rel="canonical" href="https://creart-313b9.web.app">
+    
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="CREART - Muebles Personalizados en Cali">
     <meta property="og:description" content="Muebles personalizados de alta calidad. Sillas, mesas, aparadores y más.">
-    <meta property="og:image" content="/logo.jpg">
+    <meta property="og:image" content="/logo.png">
+    <meta property="og:url" content="https://creart-313b9.web.app">
+    <meta property="og:locale" content="es_CO">
+    <meta property="og:site_name" content="CREART">
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:title" content="CREART - Muebles Personalizados">
     <meta property="twitter:description" content="Muebles personalizados de alta calidad en Cali, Colombia">
+    <meta property="twitter:image" content="/logo.png">
+    
+    <!-- Schema.org para SEO local -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "CREART",
+      "description": "Muebles personalizados de alta calidad en Cali, Colombia",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Cali",
+        "addressRegion": "Valle del Cauca",
+        "addressCountry": "CO"
+      },
+      "telephone": "+57",
+      "url": "https://creart-313b9.web.app",
+      "priceRange": "$$",
+      "openingHours": "Mo-Fr 08:00-18:00",
+      "sameAs": [
+        "https://www.facebook.com/creart",
+        "https://www.instagram.com/creart"
+      ]
+    }
+    </script>
     
     <!-- Favicon -->
-    <link rel="apple-touch-icon" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/logo.png">
+    
+    <!-- Preconnect para mejor rendimiento -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -30,6 +68,10 @@
     <!-- Preconnect para mejor rendimiento -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Security headers para evitar errores de CORS -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
   </head>
   <body>
     <div id="root"></div>

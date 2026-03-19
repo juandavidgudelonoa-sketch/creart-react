@@ -2,6 +2,51 @@
 
 ## ✅ Configuración Completa
 
+Tu sistema está configurado para usar **Ollama** (100% gratuito y local).
+
+---
+
+## 🖥️ Modelos Locales Disponibles
+
+| Modelo | Tamaño | Mejor para | Agente asignado |
+|--------|--------|------------|-----------------|
+| **qwen2.5:3b** | 2GB | Código general, rápido | coder, reviewer, designer, backend |
+| **phi3:latest** | 2.5GB | Investigación, debugging | researcher |
+| **llama3:8b** | 4.7GB | Código complejo | (disponible) |
+
+> Los modelos más pequeños son más rápidos y funcionan bien en cualquier PC.
+
+---
+
+## 👥 Agentes Configurados (100% Gratis)
+
+### 1️⃣ **coder** → qwen2.5:3b
+- **Temperatura:** 0.3
+- **Tareas:** Escribir código React/TypeScript
+- **Comando:** `oh-my-opencode run implement`
+
+### 2️⃣ **reviewer** → qwen2.5:3b  
+- **Temperatura:** 0.4
+- **Tareas:** Revisar código, detectar errores
+- **Comando:** `oh-my-opencode run review`
+
+### 3️⃣ **researcher** → phi3:latest
+- **Temperatura:** 0.7
+- **Tareas:** Debuggear, investigar problemas complejos
+- **Comando:** `oh-my-opencode run debug`
+
+### 4️⃣ **designer** → qwen2.5:3b
+- **Temperatura:** 0.6
+- **Tareas:** Diseño UI/UX, animaciones, estilos
+- **Comando:** `oh-my-opencode run design-ui`
+
+### 5️⃣ **backend** → qwen2.5:3b
+- **Temperatura:** 0.3
+- **Tareas:** Firebase, backend, APIs
+- **Comando:** `oh-my-opencode run setup-backend`
+
+## ✅ Configuración Completa
+
 Tu sistema está ahora configurado para usar **Ollama** (100% gratuito y local) en lugar de APIs pagas.
 
 ---

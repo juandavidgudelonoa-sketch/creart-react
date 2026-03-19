@@ -1,10 +1,13 @@
 import { useParams, Link } from 'react-router'
 import { useApp } from '../context/AppContext'
 import ProductCard from '../components/ProductCard'
+import { useState } from 'react'
+import { ChevronDown, X } from 'lucide-react'
 
 export default function CatalogPage() {
   const { category } = useParams()
   const { products, getProductsByCategory } = useApp()
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
   const displayProducts = category ? getProductsByCategory(category) : products
 
@@ -17,74 +20,79 @@ export default function CatalogPage() {
     zapateras: 'Zapateras',
     repisas: 'Repisas',
     escritorios: 'Escritorios',
+    'centro-entretenimiento': 'Centro Entretenimiento',
+    'mueble-bano': 'Mueble Baño',
   }
 
+  const allCategories = [
+    { id: '', name: 'Todos' },
+    { id: 'sillas', name: 'Sillas' },
+    { id: 'mesas', name: 'Mesas' },
+    { id: 'taburetes', name: 'Taburetes' },
+    { id: 'aparadores', name: 'Aparadores' },
+    { id: 'armarios', name: 'Armarios' },
+    { id: 'zapateras', name: 'Zapateras' },
+    { id: 'repisas', name: 'Repisas' },
+    { id: 'escritorios', name: 'Escritorios' },
+    { id: 'centro-entretenimiento', name: 'Centro Entretenimiento' },
+    { id: 'mueble-bano', name: 'Mueble Baño' },
+  ]
+
   return (
-    <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
-      <h1 className="text-2xl md:text-3xl font-bold text-center mb-4 md:mb-8">
+    <div className="container mx-auto px-4 py-6 md:py-8">
+      <h1 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8">
         {category ? categoryTitles[category] || category : 'Catálogo Completo'}
       </h1>
 
-      {/* Category Filters - Horizontal scroll on mobile */}
-      <div className="flex overflow-x-auto gap-2 md:gap-4 mb-4 md:mb-8 pb-2 md:pb-0 justify-start md:justify-center scrollbar-hide">
-        <Link 
-          to="/catalog" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${!category ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+      {/* Category Filters - Mobile */}
+      <div className="md:hidden mb-6">
+        <button 
+          onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+          className="w-full flex items-center justify-between px-4 py-3 bg-white rounded-lg shadow-md border"
         >
-          Todos
-        </Link>
-        <Link 
-          to="/catalog/sillas" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'sillas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Sillas
-        </Link>
-        <Link 
-          to="/catalog/mesas" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'mesas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Mesas
-        </Link>
-        <Link 
-          to="/catalog/taburetes" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'taburetes' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Taburetes
-        </Link>
-        <Link 
-          to="/catalog/aparadores" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'aparadores' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Aparadores
-        </Link>
-        <Link 
-          to="/catalog/armarios" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'armarios' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Armarios
-        </Link>
-        <Link 
-          to="/catalog/zapateras" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'zapateras' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Zapateras
-        </Link>
-        <Link 
-          to="/catalog/repisas" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'repisas' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Repisas
-        </Link>
-        <Link 
-          to="/catalog/escritorios" 
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-sm md:text-base whitespace-nowrap transition ${category === 'escritorios' ? 'bg-teal-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-        >
-          Escritorios
-        </Link>
+          <span className="font-medium">Filtrar por categoría</span>
+          <ChevronDown className={`w-5 h-5 transition-transform ${mobileFilterOpen ? 'rotate-180' : ''}`} />
+        </button>
+        
+        {mobileFilterOpen && (
+          <div className="mt-2 bg-white rounded-lg shadow-md border p-4 grid grid-cols-2 gap-2">
+            {allCategories.map(cat => (
+              <Link 
+                key={cat.id}
+                to={cat.id ? `/catalog/${cat.id}` : '/catalog'} 
+                className={`px-3 py-2 rounded-lg font-medium text-sm text-center transition ${
+                  (!category && !cat.id) || category === cat.id 
+                    ? 'bg-teal-600 text-white' 
+                    : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+                onClick={() => setMobileFilterOpen(false)}
+              >
+                {cat.name}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Category Filters - Desktop */}
+      <div className="hidden md:flex flex-wrap justify-center gap-2 md:gap-4 mb-6 md:mb-8">
+        {allCategories.map(cat => (
+          <Link 
+            key={cat.id}
+            to={cat.id ? `/catalog/${cat.id}` : '/catalog'} 
+            className={`px-3 md:px-4 py-2 rounded-full font-medium text-sm md:text-base transition ${
+              (!category && !cat.id) || category === cat.id 
+                ? 'bg-teal-600 text-white' 
+                : 'bg-gray-200 hover:bg-gray-300'
+            }`}
+          >
+            {cat.name}
+          </Link>
+        ))}
       </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {displayProducts.map(product => (
           <ProductCard key={product.id} product={product} />
         ))}
